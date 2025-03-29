@@ -1,0 +1,28 @@
+{
+    "banner_image":"https://d2o71935x5kjfa.cloudfront.net/18658553.jpeg",
+    "datetime_display_rule" :"range"
+description:"From VampireFreaks, the same company that brought you 'Dark Force Fest', ‘Dark Side of the Con’ and ‘Triton Festival’, comes our biggest event yet! For 3 days, we take over the entire ‘Sheraton Parsippany’, in Parsippany, NJ (one hour from. NYC) Featuring 35 top industrial, goth, metal, alternative bands from around the world . 2 stage of live performances over 3 days. Friday May 2nd - Sunday May 4th, 2024 Pre-party at QXT's on Thursday, May 1st. Plus: Epic entertainment performances Club Events 100+ Vendors Panels, Presentations and Activities"
+ends_at:"2025-05-04T23:59:00"
+events:
+id:157318
+image:"https://d2o71935x5kjfa.cloudfront.net/18658551.jpeg"
+is_premium:true
+latitude:40.8614835
+lineup_image:"https://d2o71935x5kjfa.cloudfront.net/18658554.jpeg"
+lineup_media_url:""
+location:"Sheraton Parsippany Hotel - Parsippany-Troy Hills, NJ"
+longitude:-74.4123147
+managed:null
+name:"Dark Force Fest 2025"
+primary_event_id:105857251
+starts_at:"2025-05-02T00:00:00"
+streaming_festival:false
+streaming_service_logo:null
+streaming_service_name:null
+streaming_url:"https://darkforcefest.com/"
+test_flag:null
+tickets:
+timezone:"America/New_York"
+verified:true
+website:"https://darkforcefest.com/"
+}
