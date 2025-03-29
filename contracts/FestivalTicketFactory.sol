@@ -33,6 +33,10 @@ TEST:
 // did the buyer buy / sell for
 // can check the original issuer if it is the FestivalTicketFactory itself
 
+// mapping eventid -> walletAddress
+// need oracle for the eventID 
+// eventID will need to be 
+
 contract FestivalTicketFactory is Ownable {
     MockOracle public mockOracle; // reference to MockOracle
     mapping(address => bool) public verifiedOrganisers; // dictionary mapping to store verified organisers
@@ -58,14 +62,39 @@ contract FestivalTicketFactory is Ownable {
         verifiedOrganisers[_organiser] = false;
     }
 
+    // MIGHT NEED A FUNCTION TO USE ORACLE TO CHECK ON THE 
+
     // Create event function using the Mock Oracle
     function createEvent(string memory, // supposed to be venue_id here if using real ChainLink Oracle
     string memory _eventName, 
-    uint256 _maxTickets, 
-    uint256 _eventTimestamp, 
+    uint256 _maxTickets, // ownself define how many max tickets organisers want to give
+    uint256 _eventTimestamp, // need Oracle to fetch the time
     string memory _eventDetailsURI) external onlyVerifiedOrganiser {
         // Fetch venue capacity from MockOracle
         uint256 venueCapacity = mockOracle.getCapacity();
         require(_maxTickets <= venueCapacity, "Exceeds venue capacity");
+        require(_eventTimestamp > block.timestamp, "Event in past"); // need to fetch the start and end of sales
+
+        // Deploy TicketNFT contract
+        TicketNFT newEvent = new TicketNFT(
+            _eventName,
+            "FEST",
+            _eventTimestamp,
+            _eventDetailsURI, // offchain metadata about the event in JSON (optional)
+            /*
+            {
+            "name": "G-Dragon Ubermensch 2025",
+            "date": "2025-05-12T18:00:00Z",
+            "venue": "Singapore Stadium",
+            "description": "Concert by G-Dragon",
+            }
+            */
+            _maxTickets
+        );
+
+        // Transfer ownership to organizer
+        newEvent.transferOwnership(msg.sender); // ERC721 standard that ensures organizer (not the factory) controls the event's tickets.
+        // TicketNFT will handle minting the amount of tickets required
+        emit EventCreated(msg.sender, address(newEvent));
     }
 }
