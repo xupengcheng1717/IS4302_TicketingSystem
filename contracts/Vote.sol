@@ -7,15 +7,13 @@ contract VotingModule {
     FestivalToken public token;
 
     struct Proposal {
-        uint256 id;
         string description;
         uint256 voteCount;
         uint256 deadline;
         bool executed;
     }
 
-    uint256 public proposalCounter;
-    mapping(uint256 => Proposal) public proposals;
+    mapping(uint256 => Proposal) public proposals; // mapping of event id to proposal
     mapping(address => mapping(uint256 => bool)) public hasVoted;
     mapping(address => uint256) public stakedTokens;
 
@@ -44,23 +42,25 @@ contract VotingModule {
         emit TokensUnstaked(msg.sender, amount);
     }
 
-    function createProposal(string memory description, uint256 duration) external {
+    function createProposal(uint256 eventId, string memory description, uint256 duration) external {
         require(stakedTokens[msg.sender] >= MIN_STAKE, "Stake required to propose");
+        Proposal storage existingProposal = proposals[eventId];
+        require(existingProposal.deadline == 0, "Proposal already exists"); // existence of proposal can be checked by checking the deadline
+        // need to do a check for the status of the event (to be integrate with the factory contract)
 
-        proposalCounter++;
-        proposals[proposalCounter] = Proposal({
-            id: proposalCounter,
+        proposals[eventId] = Proposal({
             description: description,
             voteCount: 0,
             deadline: block.timestamp + duration,
             executed: false
         });
 
-        emit ProposalCreated(proposalCounter, description, block.timestamp + duration);
+        emit ProposalCreated(eventId, description, block.timestamp + duration);
     }
 
     function vote(uint256 proposalId) external {
         Proposal storage prop = proposals[proposalId];
+        require(prop.deadline != 0, "Proposal does not exist");
         require(block.timestamp <= prop.deadline, "Voting closed");
         require(!hasVoted[msg.sender][proposalId], "Already voted");
         require(stakedTokens[msg.sender] > 0, "No staked tokens");

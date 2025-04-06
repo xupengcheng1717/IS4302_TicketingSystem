@@ -2,20 +2,21 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract FestivalToken is ERC20 {
-    address owner;
+contract FestivalToken is ERC20, Ownable {
     uint256 rate;
 
     event CreditReceived(address indexed recipient, uint256 amount);
     event CreditTransferred(address indexed from, address indexed to, uint256 amount);
 
-    constructor(uint256 _rate) ERC20("TicketCurrency", "TICK") {
-        owner = msg.sender;
+    constructor(uint256 _rate) ERC20("TicketCurrency", "TICK") Ownable(msg.sender) {
+        require(_rate > 0, "Rate must be positive");
         rate = _rate; // Meaning the number of ethers per token
     }
 
     function getCredit() public payable returns(uint256) {
+        require(msg.value > 0, "Must send ETH to receive tokens");
         uint256 amount = msg.value / (rate * (1 ether));
         _mint(msg.sender, amount);
         emit CreditReceived(msg.sender, amount);
@@ -32,7 +33,7 @@ contract FestivalToken is ERC20 {
         emit CreditTransferred(msg.sender, recipient, amount);
     }
 
-    function transferCreditFrom(address sender, address recipient, uint256 amount) public returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         require(sender == tx.origin, "Only the original sender can transfer");
         require(recipient != address(0), "Invalid recipient address");
 
@@ -40,4 +41,14 @@ contract FestivalToken is ERC20 {
         emit CreditTransferred(sender, recipient, amount);
         return true;
     }
+
+    function setRate(uint256 newRate) external onlyOwner {
+        require(newRate > 0, "Rate must be positive");
+        rate = newRate;
+    }
+
+    function withdrawETH() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+
 }
