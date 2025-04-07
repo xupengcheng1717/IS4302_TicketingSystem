@@ -1,15 +1,14 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.6.0;
 
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract TicketNFT is Context, AccessControl, ERC721 {
+contract FestivalNFT is Context, AccessControl, ERC721 {
     using Counters for Counters.Counter;
 
-    Counters.counter private _ticketIds;
+    Counters.Counter private _ticketIds;
     Counters.Counter private _saleTicketId;
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -30,12 +29,12 @@ contract TicketNFT is Context, AccessControl, ERC721 {
     mapping(address => uint256[]) private purchasedTickets;
 
     constructor(
-        string memory TicketName,
-        string memory TicketSymbol,
+        string memory festName,
+        string memory FestSymbol,
         uint256 ticketPrice,
         uint256 totalSupply,
         address organiser
-    ) public ERC721(TicketName, TicketSymbol) {
+    ) public ERC721(festName, FestSymbol) {
         _setupRole(MINTER_ROLE, organiser);
 
         _ticketPrice = ticketPrice;
@@ -68,6 +67,138 @@ contract TicketNFT is Context, AccessControl, ERC721 {
             "Re-selling price is more than 110%"
         );
         _;
+    }
+
+    /*
+     * Mint new tickets and assign it to operator
+     * Access controlled by minter only
+     * Returns new ticketId
+     */
+    function mint(address operator)
+        internal
+        virtual
+        isMinterRole
+        returns (uint256)
+    {
+        _ticketIds.increment();
+        uint256 newTicketId = _ticketIds.current();
+        _mint(operator, newTicketId);
+
+        _ticketDetails[newTicketId] = TicketDetails({
+            purchasePrice: _ticketPrice,
+            sellingPrice: 0,
+            forSale: false
+        });
+
+        return newTicketId;
+    }
+
+    /*
+     * Bulk mint specified number of tickets to assign it to a operator
+     * Modifier to check the ticket count is less than total supply
+     */
+    function bulkMintTickets(uint256 numOfTickets, address operator)
+        public
+        virtual
+        isValidTicketCount
+    {
+        require(
+            (ticketCounts() + numOfTickets) <= 1000,
+            "Number of tickets exceeds maximum ticket count"
+        );
+
+        for (uint256 i = 0; i < numOfTickets; i++) {
+            mint(operator);
+        }
+    }
+
+    /*
+     * Primary purchase for the tickets
+     * Adds new customer if not exists
+     * Adds buyer to tickets mapping
+     * Update ticket details
+     */
+    function transferTicket(address buyer) public {
+        _saleTicketId.increment();
+        uint256 saleTicketId = _saleTicketId.current();
+
+        require(
+            msg.sender == ownerOf(saleTicketId),
+            "Only initial purchase allowed"
+        );
+
+        transferFrom(ownerOf(saleTicketId), buyer, saleTicketId);
+
+        if (!isCustomerExist(buyer)) {
+            customers.push(buyer);
+        }
+        purchasedTickets[buyer].push(saleTicketId);
+    }
+
+    /*
+     * Secondary purchase for the tickets
+     * Modifier to validate that the selling price shouldn't exceed 110% of purchase price for peer to peer transfers
+     * Adds new customer if not exists
+     * Adds buyer to tickets mapping
+     * Remove ticket from the seller and from sale
+     * Update ticket details
+     */
+    function secondaryTransferTicket(address buyer, uint256 saleTicketId)
+        public
+        isValidSellAmount(saleTicketId)
+    {
+        address seller = ownerOf(saleTicketId);
+        uint256 sellingPrice = _ticketDetails[saleTicketId].sellingPrice;
+
+        transferFrom(seller, buyer, saleTicketId);
+
+        if (!isCustomerExist(buyer)) {
+            customers.push(buyer);
+        }
+
+        purchasedTickets[buyer].push(saleTicketId);
+
+        removeTicketFromCustomer(seller, saleTicketId);
+        removeTicketFromSale(saleTicketId);
+
+        _ticketDetails[saleTicketId] = TicketDetails({
+            purchasePrice: sellingPrice,
+            sellingPrice: 0,
+            forSale: false
+        });
+    }
+
+    /*
+     * Add ticket for sale with its details
+     * Validate that the selling price shouldn't exceed 110% of purchase price
+     * Organiser can not use secondary market sale
+     */
+    function setSaleDetails(
+        uint256 ticketId,
+        uint256 sellingPrice,
+        address operator
+    ) public {
+        uint256 purchasePrice = _ticketDetails[ticketId].purchasePrice;
+
+        require(
+            purchasePrice + ((purchasePrice * 110) / 100) > sellingPrice,
+            "Re-selling price is more than 110%"
+        );
+
+        // Should not be an organiser
+        require(
+            !hasRole(MINTER_ROLE, _msgSender()),
+            "Functionality only allowed for secondary market"
+        );
+
+        _ticketDetails[ticketId].sellingPrice = sellingPrice;
+        _ticketDetails[ticketId].forSale = true;
+
+        if (!isSaleTicketAvailable(ticketId)) {
+            ticketsForSale.push(ticketId);
+        }
+
+        approve(operator, ticketId);
     }
 
     // Get ticket actual price
@@ -150,139 +281,7 @@ contract TicketNFT is Context, AccessControl, ERC721 {
         return false;
     }
 
-        /*
-     * Mint new tickets and assign it to operator
-     * Access controlled by minter only
-     * Returns new ticketId
-     */
-    function mint(address operator)
-        internal
-        virtual
-        isMinterRole
-        returns (uint256)
-    {
-        _ticketIds.increment();
-        uint256 newTicketId = _ticketIds.current();
-        _mint(operator, newTicketId);
-
-        _ticketDetails[newTicketId] = TicketDetails({
-            purchasePrice: _ticketPrice,
-            sellingPrice: 0,
-            forSale: false
-        });
-
-        return newTicketId;
-    }
-
-        /*
-     * Bulk mint specified number of tickets to assign it to a operator
-     * Modifier to check the ticket count is less than total supply
-     */
-    function bulkMintTickets(uint256 numOfTickets, address operator)
-        public
-        virtual
-        isMinterRole
-    {
-        require(
-            (ticketCounts() + numOfTickets) <= _totalSupply,
-            "Number of tickets exceeds maximum ticket supply"
-        );
-
-        for (uint256 i = 0; i < numOfTickets; i++) {
-            mint(operator);
-        }
-    }
-
-    /*
-     * Primary purchase for the tickets
-     * Adds new customer if not exists
-     * Adds buyer to tickets mapping
-     * Update ticket details
-     */
-    function transferTicket(address buyer) public {
-        _saleTicketId.increment();
-        uint256 saleTicketId = _saleTicketId.current();
-
-        require(
-            msg.sender == ownerOf(saleTicketId),
-            "Only initial purchase allowed"
-        );
-
-        transferFrom(ownerOf(saleTicketId), buyer, saleTicketId);
-
-        if (!isCustomerExist(buyer)) {
-            customers.push(buyer);
-        }
-        purchasedTickets[buyer].push(saleTicketId);
-    }
-
-        /*
-     * Secondary purchase for the tickets
-     * Modifier to validate that the selling price shouldn't exceed 110% of purchase price for peer to peer transfers
-     * Adds new customer if not exists
-     * Adds buyer to tickets mapping
-     * Remove ticket from the seller and from sale
-     * Update ticket details
-     */
-    function secondaryTransferTicket(address buyer, uint256 saleTicketId)
-        public
-        isValidSellAmount(saleTicketId)
-    {
-        address seller = ownerOf(saleTicketId);
-        uint256 sellingPrice = _ticketDetails[saleTicketId].sellingPrice;
-
-        transferFrom(seller, buyer, saleTicketId);
-
-        if (!isCustomerExist(buyer)) {
-            customers.push(buyer);
-        }
-
-        purchasedTickets[buyer].push(saleTicketId);
-
-        removeTicketFromCustomer(seller, saleTicketId);
-        removeTicketFromSale(saleTicketId);
-
-        _ticketDetails[saleTicketId] = TicketDetails({
-            purchasePrice: sellingPrice,
-            sellingPrice: 0,
-            forSale: false
-        });
-    }
-
-        /*
-     * Add ticket for sale with its details
-     * Validate that the selling price shouldn't exceed 110% of purchase price
-     * Organiser can not use secondary market sale
-     */
-    function setSaleDetails(
-        uint256 ticketId,
-        uint256 sellingPrice,
-        address operator
-    ) public {
-        uint256 purchasePrice = _ticketDetails[ticketId].purchasePrice;
-
-        require(
-            purchasePrice + ((purchasePrice * 110) / 100) > sellingPrice,
-            "Re-selling price is more than 110%"
-        );
-
-        // Should not be an organiser
-        require(
-            !hasRole(MINTER_ROLE, _msgSender()),
-            "Functionality only allowed for secondary market"
-        );
-
-        _ticketDetails[ticketId].sellingPrice = sellingPrice;
-        _ticketDetails[ticketId].forSale = true;
-
-        if (!isSaleTicketAvailable(ticketId)) {
-            ticketsForSale.push(ticketId);
-        }
-
-        approve(operator, ticketId);
-    }
-
-        // Utility function to remove ticket owned by customer from customer to ticket mapping
+    // Utility function to remove ticket owned by customer from customer to ticket mapping
     function removeTicketFromCustomer(address customer, uint256 ticketId)
         internal
     {
@@ -300,5 +299,17 @@ contract TicketNFT is Context, AccessControl, ERC721 {
         }
     }
 
-    
+    // Utility function to remove ticket from sale list
+    function removeTicketFromSale(uint256 ticketId) internal {
+        uint256 numOfTickets = ticketsForSale.length;
+
+        for (uint256 i = 0; i < numOfTickets; i++) {
+            if (ticketsForSale[i] == ticketId) {
+                for (uint256 j = i + 1; j < numOfTickets; j++) {
+                    ticketsForSale[j - 1] = ticketsForSale[j];
+                }
+                ticketsForSale.pop();
+            }
+        }
+    }
 }
