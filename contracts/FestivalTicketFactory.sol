@@ -1,100 +1,55 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.7;
 
-import "@openzeppelin/contracts/access/Ownable.sol"; // provides ownership controls (admin-only functions).
-//import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
-import "./MockOracle.sol";
-import "./TicketNFT.sol"; // Imports the NFT contract that represents tickets.
+import "@chainlink/contracts/src/v0.8/functions/v1_3_0/FunctionsClient.sol";
 
-// TicketMaster consumer keys: Oir31QFJA45RrJNN7lHX4S8cLqBYYLvC
-// TickerMaster consumer secret: 6WzFEqdBIfT2bWyf
+contract FestivalTicketFactory is FunctionsClient {
+    using FunctionsRequest for FunctionsRequest.Request;
 
-// cannot make API calls in blockchains
-// instead, we need a decentralized network of chain like oracles
-/*
-1. Organizer (verified) calls createEvent with:
-    Venue ID: "stadium_123"
-    Max Tickets: 1000
-2. Oracle fetches venue capacity (e.g. 1000) and returns it.
-3. Factory validates 1000 <= 1000 → deploys TicketNFT contract.
-4. Organizer gains ownership of the new NFT contract and can mint tickets.
+    bytes32 public latestRequestId;
+    string public eventData;
 
-TEST:
-1. Verify organizer access control.
-2. Test venue capacity edge cases (e.g., exact match, over-limit).
-3. Simulate oracle failures and retries.
-*/
+    constructor(address oracleAddress) FunctionsClient(oracleAddress) {}
 
-// create mock oracle because we are not fetching from real API. can i do this? 
-// or must fetch from real API which needs money
-// Need to create another JS file with API/ mock data
-
-// ticketNFT minted. can view the previous price of the ticket from the transaction hash to see how much
-// did the buyer buy / sell for
-// can check the original issuer if it is the FestivalTicketFactory itself
-
-// mapping eventid -> walletAddress
-// need oracle for the eventID 
-// eventID will need to be 
-
-contract FestivalTicketFactory is Ownable {
-    MockOracle public mockOracle; // reference to MockOracle
-    mapping(address => bool) public verifiedOrganisers; // dictionary mapping to store verified organisers
-    // only these people can deploy this contract
-    event EventCreated(address indexed organizer, address ticketContract); // event to emit after successful event creation
-    
-    constructor(address _mockOracleAddress) {
-        mockOracle = MockOracle(_mockOracleAddress); // casts the address _mockOracleAddress to MockOracle type
-    }
-
-    // modifier to restrict verified organisers
-    modifier onlyVerifiedOrganiser() {
-        require(verifiedOrganisers[msg.sender], "Not Verified");
-        _;
-    }
-
-    // function to add/ remove verified organizers (admin-only)
-    function addOrganiser(address _organiser) external onlyOwner {
-        verifiedOrganisers[_organiser] = false;
-    }
-
-    function removeOrganiser(address _organiser) external onlyOwner {
-        verifiedOrganisers[_organiser] = false;
-    }
-
-    // MIGHT NEED A FUNCTION TO USE ORACLE TO CHECK ON THE 
-
-    // Create event function using the Mock Oracle
-    function createEvent(string memory, // supposed to be venue_id here if using real ChainLink Oracle
-    string memory _eventName, 
-    uint256 _maxTickets, // ownself define how many max tickets organisers want to give
-    uint256 _eventTimestamp, // need Oracle to fetch the time
-    string memory _eventDetailsURI) external onlyVerifiedOrganiser {
-        // Fetch venue capacity from MockOracle
-        uint256 venueCapacity = mockOracle.getCapacity();
-        require(_maxTickets <= venueCapacity, "Exceeds venue capacity");
-        require(_eventTimestamp > block.timestamp, "Event in past"); // need to fetch the start and end of sales
-
-        // Deploy TicketNFT contract
-        TicketNFT newEvent = new TicketNFT(
-            _eventName,
-            "FEST",
-            _eventTimestamp,
-            _eventDetailsURI, // offchain metadata about the event in JSON (optional)
-            /*
-            {
-            "name": "G-Dragon Ubermensch 2025",
-            "date": "2025-05-12T18:00:00Z",
-            "venue": "Singapore Stadium",
-            "description": "Concert by G-Dragon",
-            }
-            */
-            _maxTickets
+    // Request event data from Chainlink Functions
+    // hard-coded the eventID
+    function requestEventData(string calldata eventId) external {
+        // Initialize the request
+        FunctionsRequest.Request memory req;
+        req.initializeRequestForInlineJavaScript(
+            "const eventId = args[0];"
+            "const url = `https://firestore.googleapis.com/v1/projects/is4302-bfa34/databases/(default)/documents/validEvents/${eventId}`;"
+            "const apiKey = secrets.apiKey;"
+            "const response = await Functions.makeHttpRequest({ url, headers: { 'Authorization': `Bearer ${apiKey}` } });"
+            "if (response.error) throw Error('Request failed');"
+            "const eventData = response.data.fields;"
+            "const address = eventData.address.stringValue;" // Extract the address field
+            "return Functions.encodeString(address);" // Return the address as a string
         );
 
-        // Transfer ownership to organizer
-        newEvent.transferOwnership(msg.sender); // ERC721 standard that ensures organizer (not the factory) controls the event's tickets.
-        // TicketNFT will handle minting the amount of tickets required
-        emit EventCreated(msg.sender, address(newEvent));
+        // Set the arguments for the request
+        string[] memory args = new string[](1);
+        args[0] = eventId;
+        req.setArgs(args);
+
+        // Send the request to the Chainlink Functions oracle
+        latestRequestId = _sendRequest(
+            req.encodeCBOR(), // Encode the request as CBOR
+            123,              // Subscription ID (replace with your actual subscription ID)
+            100_000,          // Gas limit for the callback
+            bytes32(0)        // DON ID (replace with your actual DON ID)
+        );
+    }
+
+    // Callback function called by the oracle with the result
+    function _fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
+        latestRequestId = requestId;
+        if (err.length > 0) {
+            // Handle error
+            eventData = string(err);
+        } else {
+            // Handle success
+            eventData = string(response);
+        }
     }
 }
