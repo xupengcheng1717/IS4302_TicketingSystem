@@ -35,9 +35,9 @@ contract FestivalTicketFactory is FunctionsClient {
         // Send the request to the Chainlink Functions oracle
         latestRequestId = _sendRequest(
             req.encodeCBOR(), // Encode the request as CBOR
-            123,              // Subscription ID (replace with your actual subscription ID)
+            123,              // Subscription ID 
             100_000,          // Gas limit for the callback
-            bytes32(0)        // DON ID (replace with your actual DON ID)
+            bytes32(0)        // DON ID 
         );
     }
 
