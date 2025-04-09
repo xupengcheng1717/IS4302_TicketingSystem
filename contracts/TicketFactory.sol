@@ -21,11 +21,13 @@ contract TicketFactory is Ownable {
     // Event structure
     struct Event {
         string eventId; // From Firebase/Firestore
+        string eventName;
+        address marketplaceAddress; // Marketplace address for this event
         address organiser;
         address ticketContract;
         uint256 ticketPrice; // I include this too cause it makes sense for the factory to like "make" the contracts with a fixed price and total supply so can track easier (prevent fraud)
         uint256 totalSupply;
-        string ipfsHash; // IPFS details for the event // concert details
+        // u can include how you want store the event details here @minghan
         bool isActive; // event status => maybe use voting system to update this status
     }
     
@@ -38,20 +40,16 @@ contract TicketFactory is Ownable {
     event OrganiserVerified(address indexed walletAddress, string organiserId);
     event OrganiserRemoved(address indexed walletAddress);
     event EventCreated(
-        string indexed eventId, 
-        address indexed organiser, 
+        string eventId,
+        string eventName,
+        address marketplaceAddress,
+        address organiser,
         address ticketContract,
-        uint256 ticketPrice,
-        uint256 totalSupply,
-        string ipfsHash
+        uint256 ticketPrice,        
+        uint256 totalSupply
     );
     event OracleUpdated(address indexed newOracle);
     
-    // Set the Chainlink oracle address // IDK what this does so uw change can change
-    function setOracleAddress(address _oracleAddress) external onlyOwner {
-        oracle = AggregatorV3Interface(_oracleAddress);
-        emit OracleUpdated(_oracleAddress);
-    }
     
     // Verify an organiser (onlyOwner - admin function)
     function verifyOrganiser(
@@ -78,12 +76,12 @@ contract TicketFactory is Ownable {
     
     // Create a new event and NFT ticket contract
     function createEvent(
-        string memory _eventId,
-        string memory _eventName,
-        string memory _eventSymbol,
-        uint256 memory _ticketPrice,
-        uint256 memory _totalSupply,
-        string memory _ipfsHash
+        string _eventId,
+        string _eventName,
+        address _marketplaceAddress,
+        address _ticketContract,
+        uint256 _ticketPrice,        
+        uint256 _totalSupply
     ) external returns (address) {
         require(organisers[msg.sender].isVerified, "Not a verified organiser");
         require(bytes(events[_eventId].eventId).length == 0, "Event ID already exists");
@@ -91,7 +89,9 @@ contract TicketFactory is Ownable {
         // Create new NFT contract for this event's tickets
         TicketNFT newTicketContract = new TicketNFT(
             _eventName,
-            _eventSymbol,
+            _eventId,
+            _ticketPrice,
+            _totalSupply,
             msg.sender // Organiser becomes owner
         );
         
@@ -102,9 +102,10 @@ contract TicketFactory is Ownable {
             ticketContract: address(newTicketContract),
             ticketPrice: _ticketPrice,
             totalSupply: _totalSupply,
-            ipfsHash: _ipfsHash,
             isActive: true
         });
+
+       // address newMarket
         
         // Add to organiser's events list
         organiserEvents[msg.sender].push(_eventId);
@@ -125,23 +126,10 @@ contract TicketFactory is Ownable {
         address ticketContract,
         uint256 ticketPrice,
         uint256 totalSupply,
-        string memory ipfsHash,
         bool isActive
     ) {
         Event storage e = events[_eventId];
-        return (e.organiser, e.ticketContract, e.ticketPrice, e.totalSupply, ipfsHash, e.isActive);
+        return (e.organiser, e.ticketContract, e.ticketPrice, e.totalSupply, e.isActive);
     }
-    
-    // // Fetch data from Chainlink oracle (example)
-    // function fetchEventDataFromOracle(string memory _eventId) external view returns (int) {
-    //     // This is a simplified example - you'd customise based on your oracle implementation
-    //     (
-    //         uint80 roundID, 
-    //         int answer,
-    //         uint startedAt,
-    //         uint updatedAt,
-    //         uint80 answeredInRound
-    //     ) = oracle.latestRoundData();
-    //     return answer;
-    // }
+
 }
