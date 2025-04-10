@@ -9,6 +9,7 @@ contract FestivalToken is ERC20, Ownable {
 
     event CreditReceived(address indexed recipient, uint256 amount);
     event CreditTransferred(address indexed from, address indexed to, uint256 amount);
+    event ETHWithdrawn(address indexed owner, uint256 amount);
 
     constructor(uint256 _rate) ERC20("TicketCurrency", "TICK") Ownable(msg.sender) {
         require(_rate > 0, "Rate must be positive");
@@ -33,13 +34,12 @@ contract FestivalToken is ERC20, Ownable {
         emit CreditTransferred(msg.sender, recipient, amount);
     }
 
-    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
+    function transferCreditFrom(address sender, address recipient, uint256 amount) public {
         require(sender == tx.origin, "Only the original sender can transfer");
         require(recipient != address(0), "Invalid recipient address");
-
+        // Balance check is not needed as the transfer function will revert if the balance is insufficient
         _transfer(sender, recipient, amount);
         emit CreditTransferred(sender, recipient, amount);
-        return true;
     }
 
     function setRate(uint256 newRate) external onlyOwner {
@@ -48,7 +48,10 @@ contract FestivalToken is ERC20, Ownable {
     }
 
     function withdrawETH() external onlyOwner {
-        payable(owner()).transfer(address(this).balance);
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No ETH to withdraw");
+        payable(owner()).transfer(balance);
+        emit ETHWithdrawn(owner(), balance);
     }
 
 }
