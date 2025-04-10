@@ -1,5 +1,6 @@
 node_modules
 .env
+is4302-bfa34-firebase-adminsdk-fbsvc-42c83ac78f.json
 
 # Hardhat files
 /cache
