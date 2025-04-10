@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./FestivalToken.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract FestivalStatusVoting {
+contract FestivalStatusVoting is Ownable {
     uint256 constant REFUND_THRESHOLD = 50; // 50% of the total number of tickets sold
 
     struct Voting {
@@ -18,10 +18,9 @@ contract FestivalStatusVoting {
     event Voted(address voter, uint256 eventId, bool voteChoice);
     event Refund(uint256 eventId);
 
-    // constructor() {
-    // }
+    constructor() Ownable(msg.sender) {}
 
-    function createVoting(uint256 eventId, uint256 eventDeadline) external {
+    function createVoting(uint256 eventId, uint256 eventDeadline) external onlyOwner {
         require(eventDeadline > block.timestamp, "Deadline must be in the future");
         require(votings[eventId].deadline == 0, "Voting already exists for this event");
         votings[eventId] = Voting({
