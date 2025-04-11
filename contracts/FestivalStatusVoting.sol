@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./TicketNFT.sol";
 
 contract FestivalStatusVoting is Ownable {
     uint256 constant REFUND_THRESHOLD = 50; // 50% of the total number of tickets sold
@@ -10,6 +11,7 @@ contract FestivalStatusVoting is Ownable {
         uint256 noVotes;
         uint256 yesVotes;
         uint256 deadline;
+        address ticketNFTAddress; // address of the ticket NFT contract
     }
 
     mapping(string => Voting) public votings; // mapping of event id to voting
@@ -20,13 +22,14 @@ contract FestivalStatusVoting is Ownable {
 
     constructor() Ownable(msg.sender) {}
 
-    function createVoting(string memory eventId, uint256 eventDeadline) external onlyOwner {
-        require(eventDeadline > block.timestamp, "Deadline must be in the future");
+    function createVoting(string memory eventId, uint256 votingDeadline, address ticketNFTAddress) external onlyOwner {
+        require(votingDeadline > block.timestamp, "Deadline must be in the future");
         require(votings[eventId].deadline == 0, "Voting already exists for this event");
         votings[eventId] = Voting({
             noVotes: 0,
             yesVotes: 0,
-            deadline: eventDeadline
+            deadline: votingDeadline,
+            ticketNFTAddress: ticketNFTAddress
         });
     }
 
@@ -34,7 +37,7 @@ contract FestivalStatusVoting is Ownable {
         Voting storage voting = votings[eventId];
         require(voting.deadline != 0, "Voting does not exist");
         require(block.timestamp <= voting.deadline, "Voting closed");
-        require(!hasVoted[eventId][msg.sender], "Already voted");
+        require(!hasVoted[eventId][msg.sender], "Already voted"); // TODO: update to cater for number of tickers a user has (might be more than 1)
 
         if (voteChoice) {
             voting.yesVotes += 1;

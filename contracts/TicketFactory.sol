@@ -188,7 +188,7 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
         );
 
 
-        newVotingContract.createVoting(_eventId, _deadline + 24 hours);
+        newVotingContract.createVoting(_eventId, _deadline + 24 hours, address(newTicketContract));
         
         // Store event details
         events[_eventId] = Event({
