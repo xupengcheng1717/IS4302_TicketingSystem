@@ -12,15 +12,15 @@ contract FestivalStatusVoting is Ownable {
         uint256 deadline;
     }
 
-    mapping(uint256 => Voting) public votings; // mapping of event id to voting
-    mapping(uint256 => mapping(address => bool)) public hasVoted;
+    mapping(string => Voting) public votings; // mapping of event id to voting
+    mapping(string => mapping(address => bool)) public hasVoted;
 
-    event Voted(address voter, uint256 eventId, bool voteChoice);
-    event Refund(uint256 eventId);
+    event Voted(address voter, string eventId, bool voteChoice);
+    event Refund(string eventId);
 
     constructor() Ownable(msg.sender) {}
 
-    function createVoting(uint256 eventId, uint256 eventDeadline) external onlyOwner {
+    function createVoting(string memory eventId, uint256 eventDeadline) external onlyOwner {
         require(eventDeadline > block.timestamp, "Deadline must be in the future");
         require(votings[eventId].deadline == 0, "Voting already exists for this event");
         votings[eventId] = Voting({
@@ -30,7 +30,7 @@ contract FestivalStatusVoting is Ownable {
         });
     }
 
-    function vote(uint256 eventId, bool voteChoice) external {
+    function vote(string memory eventId, bool voteChoice) external {
         Voting storage voting = votings[eventId];
         require(voting.deadline != 0, "Voting does not exist");
         require(block.timestamp <= voting.deadline, "Voting closed");
@@ -46,11 +46,11 @@ contract FestivalStatusVoting is Ownable {
         emit Voted(msg.sender, eventId, voteChoice);
     }
 
-    function getVotingDetail(uint256 eventId) external view returns (Voting memory) {
+    function getVotingDetail(string memory eventId) external view returns (Voting memory) {
         return votings[eventId];
     }
 
-    function checkRefund(uint256 eventId) internal {
+    function checkRefund(string memory eventId) internal {
         Voting storage voting = votings[eventId];
         require(voting.deadline != 0, "Voting does not exist");
 
@@ -60,7 +60,7 @@ contract FestivalStatusVoting is Ownable {
         }
         uint256 percentageNoVotes = (voting.noVotes * 100) / totalTickets;
         if (percentageNoVotes >= REFUND_THRESHOLD) {
-            // trigger refund for this event
+            // @ TODO: trigger refund for this event
             emit Refund(eventId);
         }
     }
