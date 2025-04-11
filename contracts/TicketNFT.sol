@@ -248,6 +248,17 @@ contract TicketNFT is AccessControl, ERC721 {
                 break;
             }
         }
+
+        // remove customer from customers array if they have no tickets
+        if (tickets.length == 0) {
+            for (uint256 i = 0; i < customers.length; i++) {
+                if (customers[i] == customer) {
+                    customers[i] = customers[customers.length - 1];
+                    customers.pop();
+                    break;
+                }
+            }
+        }
     }
 
     function removeTicketFromSale(uint256 ticketId) internal {
