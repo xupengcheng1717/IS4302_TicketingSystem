@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
+
+
 contract TicketNFT is AccessControl, ERC721 {
     // Replaced Counters with simple uint256
     uint256 private _ticketIds;
@@ -20,6 +22,7 @@ contract TicketNFT is AccessControl, ERC721 {
     address private _organiser;
     address[] private customers;
     uint256[] private ticketsForSale;
+    string private _eventId;
     uint256 private _ticketPrice;
     uint256 private _totalSupply;
 
@@ -29,6 +32,7 @@ contract TicketNFT is AccessControl, ERC721 {
     constructor(
         string memory eventName,
         string memory eventSymbol,
+        string memory eventId,
         uint256 ticketPrice,
         uint256 totalSupply,
         address organiser
@@ -36,6 +40,7 @@ contract TicketNFT is AccessControl, ERC721 {
         _grantRole(DEFAULT_ADMIN_ROLE, organiser);
         _grantRole(MINTER_ROLE, organiser);
 
+        _eventId = eventId;
         _ticketPrice = ticketPrice;
         _totalSupply = totalSupply;
         _organiser = organiser;
@@ -206,6 +211,14 @@ contract TicketNFT is AccessControl, ERC721 {
         returns (uint256[] memory)
     {
         return purchasedTickets[customer];
+    }
+
+    function getCurrentNumberOfCustomers()
+        public
+        view
+        returns (uint256)
+    {
+        return customers.length;
     }
 
     function isCustomerExist(address buyer) internal view returns (bool) {

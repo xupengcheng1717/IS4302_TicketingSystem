@@ -8,6 +8,7 @@ import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/Confir
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 
 import "./TicketNFT.sol";
+import "./FestivalStatusVoting.sol";
 
 contract TicketFactory is FunctionsClient, ConfirmedOwner {
     using FunctionsRequest for FunctionsRequest.Request;
@@ -47,7 +48,9 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
 
     // State variable to store the returned character information
     string public fetchedAddress;
-    
+
+    // Voting contract
+    FestivalStatusVoting public newVotingContract;
 
     // Event organiser structure
     struct Organiser {
@@ -95,7 +98,10 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
     /**
      * @notice Initializes the contract with the Chainlink router address and sets the contract owner
      */
-    constructor() FunctionsClient(router) ConfirmedOwner(msg.sender) {}
+    constructor(address _votingContractAddress) FunctionsClient(router) ConfirmedOwner(msg.sender) {
+        require(_votingContractAddress != address(0), "Invalid voting contract address");
+        newVotingContract = FestivalStatusVoting(_votingContractAddress);
+    }
 
     // For oracles
     /**
@@ -174,11 +180,15 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
         // Create new NFT contract for this event's tickets
         TicketNFT newTicketContract = new TicketNFT(
             _eventName,
+            _eventSymbol,
             _eventId,
             _ticketPrice,
             _totalSupply,
             msg.sender // Organiser becomes owner
         );
+
+
+        newVotingContract.createVoting(_eventId, _deadline + 24 hours);
         
         // Store event details
         events[_eventId] = Event({
@@ -189,6 +199,7 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
             ticketPrice: _ticketPrice,
             totalSupply: _totalSupply,
             isActive: true
+
         });
         
         // Add to organiser's events list
