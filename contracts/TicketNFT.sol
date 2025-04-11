@@ -4,7 +4,13 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-
+interface IVoting {
+    function voteFromTicketNFT(
+        address voter,
+        string memory eventId,
+        bool voteChoice
+    ) external;
+}
 
 contract TicketNFT is AccessControl, ERC721 {
     // Replaced Counters with simple uint256
@@ -29,13 +35,16 @@ contract TicketNFT is AccessControl, ERC721 {
     mapping(uint256 => TicketDetails) private _ticketDetails;
     mapping(address => uint256[]) private purchasedTickets;
 
+    IVoting public votingContract;
+
     constructor(
         string memory eventName,
         string memory eventSymbol,
         string memory eventId,
         uint256 ticketPrice,
         uint256 totalSupply,
-        address organiser
+        address organiser,
+        address votingContractAddress
     ) ERC721(eventName, eventSymbol) {
         _grantRole(DEFAULT_ADMIN_ROLE, organiser);
         _grantRole(MINTER_ROLE, organiser);
@@ -44,6 +53,7 @@ contract TicketNFT is AccessControl, ERC721 {
         _ticketPrice = ticketPrice;
         _totalSupply = totalSupply;
         _organiser = organiser;
+        votingContract = IVoting(votingContractAddress);
     }
 
     modifier isValidTicketCount() {
@@ -213,6 +223,20 @@ contract TicketNFT is AccessControl, ERC721 {
         return purchasedTickets[customer];
     }
 
+    function isCustomerHolderOf(address customer, uint256 ticketId)
+        public
+        view
+        returns (bool)
+    {
+        uint256[] memory tickets = purchasedTickets[customer];
+        for (uint256 i = 0; i < tickets.length; i++) {
+            if (tickets[i] == ticketId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     function getCurrentNumberOfCustomers()
         public
         view
@@ -221,7 +245,7 @@ contract TicketNFT is AccessControl, ERC721 {
         return customers.length;
     }
 
-    function isCustomerExist(address buyer) internal view returns (bool) {
+    function isCustomerExist(address buyer) public view returns (bool) {
         for (uint256 i = 0; i < customers.length; i++) {
             if (customers[i] == buyer) {
                 return true;
@@ -280,4 +304,16 @@ contract TicketNFT is AccessControl, ERC721 {
         return super.supportsInterface(interfaceId);
     }
 
+    function scanNFT(address customer, uint256 ticketId)
+        public
+        returns (bool)
+    {
+        require(msg.sender == _organiser, "Only organiser can scan ticket NFT");
+        require(
+            isCustomerHolderOf(customer, ticketId),
+            "Customer does not hold this ticket"
+        );
+        votingContract.voteFromTicketNFT(customer, _eventId, true);
+        return true;
+    }
 }
