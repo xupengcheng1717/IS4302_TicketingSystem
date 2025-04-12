@@ -2,33 +2,36 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 
-
-
-contract TicketNFT is AccessControl, ERC721 {
+contract TicketNFT is AccessControl, ERC721Enumerable {
     // Replaced Counters with simple uint256
     uint256 private _ticketIds;
-    uint256 private _saleTicketId;
-
+    
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant MARKETPLACE_ROLE = keccak256("MARKETPLACE_ROLE");
 
     struct TicketDetails {
         uint256 purchasePrice;
-        uint256 sellingPrice;
-        bool forSale;
+        bool isUsed;
     }
 
     address private _organiser;
-    address[] private customers;
-    uint256[] private ticketsForSale;
     string private _eventId;
     uint256 private _ticketPrice;
     uint256 private _totalSupply;
 
     mapping(uint256 => TicketDetails) private _ticketDetails;
-    mapping(address => uint256[]) private purchasedTickets;
 
+    /**
+     * @notice Initializes the ticket NFT contract with event details and assigns roles
+     * @param eventName The name of the event
+     * @param eventSymbol The symbol for the event's tickets
+     * @param eventId Unique identifier for the event
+     * @param ticketPrice Price of each ticket in wei
+     * @param totalSupply Maximum number of tickets available for the event
+     * @param organiser Address of the event organiser who will have admin and minter roles
+     */
     constructor(
         string memory eventName,
         string memory eventSymbol,
@@ -46,26 +49,38 @@ contract TicketNFT is AccessControl, ERC721 {
         _organiser = organiser;
     }
 
+    /**
+     * @notice Modifier to check if the maximum ticket limit has not been exceeded
+     */
     modifier isValidTicketCount() {
         require(_ticketIds < _totalSupply, "Max ticket limit exceeded!");
         _;
     }
 
+    /**
+     * @notice Modifier to check if the caller has the minter role
+     */
     modifier isMinterRole() {
         require(hasRole(MINTER_ROLE, msg.sender), "Must have minter role");
         _;
     }
 
-    modifier isValidSellAmount(uint256 ticketId) {
-        uint256 purchasePrice = _ticketDetails[ticketId].purchasePrice;
-        uint256 sellingPrice = _ticketDetails[ticketId].sellingPrice;
-        require(
-            sellingPrice <= purchasePrice + ((purchasePrice * 110) / 100),
-            "Re-selling price exceeds 110%"
-        );
-        _;
+    /**
+     * @notice Grants marketplace role to a specified address
+     * @param marketplaceAddress Address of the marketplace contract
+     * @dev Only callable by admin
+     */
+    function setMarketplace(address marketplaceAddress) external {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Must be admin");
+        _grantRole(MARKETPLACE_ROLE, marketplaceAddress);
     }
 
+    /**
+     * @notice Mints a new ticket to the specified address
+     * @param operator Address that will receive the minted ticket
+     * @return The ID of the newly minted ticket
+     * @dev Only callable by addresses with minter role
+     */
     function mint(address operator)
         internal
         virtual
@@ -78,13 +93,18 @@ contract TicketNFT is AccessControl, ERC721 {
 
         _ticketDetails[newTicketId] = TicketDetails({
             purchasePrice: _ticketPrice,
-            sellingPrice: 0,
-            forSale: false
+            isUsed: false
         });
 
         return newTicketId;
     }
 
+    /**
+     * @notice Mints multiple tickets at once to the specified address
+     * @param numOfTickets Number of tickets to mint
+     * @param operator Address that will receive the minted tickets
+     * @dev Only callable by addresses with minter role
+     */
     function bulkMintTickets(uint256 numOfTickets, address operator)
         public
         virtual
@@ -101,180 +121,80 @@ contract TicketNFT is AccessControl, ERC721 {
         }
     }
 
-    function transferTicket(address buyer) public {
-        _saleTicketId++;
-        uint256 saleTicketId = _saleTicketId;
-
-        require(msg.sender == ownerOf(saleTicketId), "Only owner can transfer");
-
-        transferFrom(msg.sender, buyer, saleTicketId);
-
-        if (!isCustomerExist(buyer)) {
-            customers.push(buyer);
-        }
-
-        purchasedTickets[buyer].push(saleTicketId);
+    /**
+     * @notice Allows a user to purchase a ticket directly from the contract
+     * @return The ID of the purchased ticket
+     * @dev Requires payment equal to or greater than the ticket price
+     */
+    function buyTicket() public payable returns (uint256) {
+        require(_ticketIds < _totalSupply, "All tickets sold out");
+        require(msg.value >= _ticketPrice, "Insufficient payment");
+        
+        // Mint a new ticket to the buyer
+        uint256 newTicketId = mint(msg.sender);
+        
+        // Transfer payment to organiser
+        payable(_organiser).transfer(msg.value);
+        
+        return newTicketId;
     }
 
-    function secondaryTransferTicket(address buyer, uint256 saleTicketId)
-        public
-        isValidSellAmount(saleTicketId)
-    {
-        address seller = ownerOf(saleTicketId);
-        uint256 sellingPrice = _ticketDetails[saleTicketId].sellingPrice;
-
-        transferFrom(seller, buyer, saleTicketId);
-
-        if (!isCustomerExist(buyer)) {
-            customers.push(buyer);
-        }
-
-        purchasedTickets[buyer].push(saleTicketId);
-
-        removeTicketFromCustomer(seller, saleTicketId);
-        removeTicketFromSale(saleTicketId);
-
-        _ticketDetails[saleTicketId] = TicketDetails({
-            purchasePrice: sellingPrice,
-            sellingPrice: 0,
-            forSale: false
-        });
-    }
-
-    function setSaleDetails(
-        uint256 ticketId,
-        uint256 sellingPrice,
-        address operator
-    ) public {
-        uint256 purchasePrice = _ticketDetails[ticketId].purchasePrice;
-
-        require(
-            sellingPrice <= purchasePrice + ((purchasePrice * 110) / 100),
-            "Re-selling price exceeds 110%"
-        );
-
-        require(
-            !hasRole(MINTER_ROLE, msg.sender),
-            "Organiser cannot set resale details"
-        );
-
-        _ticketDetails[ticketId].sellingPrice = sellingPrice;
-        _ticketDetails[ticketId].forSale = true;
-
-        if (!isSaleTicketAvailable(ticketId)) {
-            ticketsForSale.push(ticketId);
-        }
-
-        approve(operator, ticketId);
-    }
-
+    /**
+     * @notice Returns the price of a ticket
+     * @return The ticket price in wei
+     */
     function getTicketPrice() public view returns (uint256) {
         return _ticketPrice;
     }
 
+    /**
+     * @notice Returns the address of the event organiser
+     * @return The organiser's address
+     */
     function getOrganiser() public view returns (address) {
         return _organiser;
     }
 
+    /**
+     * @notice Returns the event ID
+     * @return The event ID string
+     */
+    function getEventId() public view returns (string memory) {
+        return _eventId;
+    }
+
+    /**
+     * @notice Returns the total number of tickets minted so far
+     * @return The count of minted tickets
+     */
     function ticketCounts() public view returns (uint256) {
         return _ticketIds;
     }
 
-    function getNextSaleTicketId() public view returns (uint256) {
-        return _saleTicketId;
-    }
-
-    function getSellingPrice(uint256 ticketId) public view returns (uint256) {
-        return _ticketDetails[ticketId].sellingPrice;
-    }
-
-    function getTicketsForSale() public view returns (uint256[] memory) {
-        return ticketsForSale;
-    }
-
+    /**
+     * @notice Returns the details of a specific ticket
+     * @param ticketId The ID of the ticket to query
+     * @return purchasePrice The original purchase price of the ticket
+     * @return isUsed Whether the ticket has been used or not
+     */
     function getTicketDetails(uint256 ticketId)
         public
         view
-        returns (
-            uint256 purchasePrice,
-            uint256 sellingPrice,
-            bool forSale
-        )
+        returns (uint256 purchasePrice, bool isUsed)
     {
         TicketDetails memory t = _ticketDetails[ticketId];
-        return (t.purchasePrice, t.sellingPrice, t.forSale);
+        return (t.purchasePrice, t.isUsed);
     }
 
-    function getTicketsOfCustomer(address customer)
-        public
-        view
-        returns (uint256[] memory)
-    {
-        return purchasedTickets[customer];
-    }
-
-    function getCurrentNumberOfCustomers()
-        public
-        view
-        returns (uint256)
-    {
-        return customers.length;
-    }
-
-    function isCustomerExist(address buyer) internal view returns (bool) {
-        for (uint256 i = 0; i < customers.length; i++) {
-            if (customers[i] == buyer) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function isSaleTicketAvailable(uint256 ticketId) internal view returns (bool) {
-        for (uint256 i = 0; i < ticketsForSale.length; i++) {
-            if (ticketsForSale[i] == ticketId) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function removeTicketFromCustomer(address customer, uint256 ticketId) internal {
-        uint256[] storage tickets = purchasedTickets[customer];
-        for (uint256 i = 0; i < tickets.length; i++) {
-            if (tickets[i] == ticketId) {
-                tickets[i] = tickets[tickets.length - 1];
-                tickets.pop();
-                break;
-            }
-        }
-
-        // remove customer from customers array if they have no tickets
-        if (tickets.length == 0) {
-            for (uint256 i = 0; i < customers.length; i++) {
-                if (customers[i] == customer) {
-                    customers[i] = customers[customers.length - 1];
-                    customers.pop();
-                    break;
-                }
-            }
-        }
-    }
-
-    function removeTicketFromSale(uint256 ticketId) internal {
-        for (uint256 i = 0; i < ticketsForSale.length; i++) {
-            if (ticketsForSale[i] == ticketId) {
-                ticketsForSale[i] = ticketsForSale[ticketsForSale.length - 1];
-                ticketsForSale.pop();
-                break;
-            }
-        }
-    }
-
+    /**
+     * @notice Implements the supportsInterface function from both parent contracts
+     * @param interfaceId The interface identifier to check
+     * @return bool True if the interface is supported
+     */
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(AccessControl, ERC721)
+        override(AccessControl, ERC721Enumerable)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
