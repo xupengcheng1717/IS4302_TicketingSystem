@@ -184,11 +184,12 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
             _eventId,
             _ticketPrice,
             _totalSupply,
-            msg.sender // Organiser becomes owner
+            msg.sender, // Organiser becomes owner
+            address(newVotingContract) // Pass the voting contract address
         );
 
-
-        newVotingContract.createVoting(_eventId, _deadline + 24 hours);
+        // TODO: update block.timestamp to the actual start date
+        newVotingContract.createVoting(_eventId, block.timestamp + 24 hours, address(newTicketContract));
         
         // Store event details
         events[_eventId] = Event({
