@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "./FestivalToken.sol";
 
 interface IVoting {
     function voteFromTicketNFT(
@@ -34,7 +35,8 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
     mapping(uint256 => TicketDetails) private ticketDetails;
     address[] private customers;
 
-    IVoting public votingContract;
+    FestivalToken private festivalToken;
+    IVoting private votingContract;
 
     /**
      * @notice Initializes the ticket NFT contract with event details and assigns roles
@@ -53,6 +55,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         uint256 _ticketPrice,
         uint256 _totalSupply,
         address _organiser,
+        address _festivalTokenAddress,
         address _votingContractAddress
     ) ERC721(_eventName, _eventSymbol) {
         _grantRole(DEFAULT_ADMIN_ROLE, organiser);
@@ -62,6 +65,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         ticketPrice = _ticketPrice;
         totalSupply = _totalSupply;
         organiser = _organiser;
+        festivalToken = FestivalToken(_festivalTokenAddress);
         votingContract = IVoting(_votingContractAddress);
     }
 
@@ -173,11 +177,15 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
      * @return Array of purchased ticket IDs
      * @dev Requires payment equal to or greater than the total ticket price
      */
-    function buyTickets(uint256 _numOfTickets) public payable returns (uint256[] memory) {
+    function buyTickets(uint256 _numOfTickets) public returns (uint256[] memory) {
         require(saleTicketId + _numOfTickets <= ticketId, "Not enough tickets minted");
-        require(msg.value >= ticketPrice * _numOfTickets, "Insufficient payment");
+
+        uint256 _totalPrice = ticketPrice * _numOfTickets;
+        require(festivalToken.balanceOf(msg.sender) >= _totalPrice, "Insufficient token balance");
 
         uint256[] memory purchasedTickets = new uint256[](_numOfTickets);
+
+        festivalToken.transferCreditFrom(msg.sender, organiser, _totalPrice);
         
         for (uint256 i = 0; i < _numOfTickets; i++) {
             uint256 _soldTicketId = saleTicketId;
@@ -189,10 +197,6 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         }
 
         addCustomer(msg.sender);
-
-        // Transfer total payment to organiser
-        payable(organiser).transfer(msg.value);
-        
         return purchasedTickets;
     }
 
@@ -314,7 +318,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
             for (uint256 j = 0; j < balance; j++) {
                 uint256 tokenId = tokenOfOwnerByIndex(customer, j);
                 transferFrom(customer, organiser, tokenId);
-                payable(customer).transfer(ticketPrice);
+                festivalToken.transferCreditFrom(organiser, customer, ticketPrice);
             }
         }
     }

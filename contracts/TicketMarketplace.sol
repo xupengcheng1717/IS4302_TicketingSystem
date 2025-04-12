@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "./FestivalToken.sol";
 import "./TicketFactory.sol";
 import "./TicketNFT.sol";
 
@@ -19,6 +20,7 @@ contract TicketMarketplace {
         bool isActive;
     }
 
+    FestivalToken private festivalToken;
     TicketFactory private ticketFactory;
     TicketNFT private ticketNFT;
     address private organiser;
@@ -36,7 +38,14 @@ contract TicketMarketplace {
      * @param _organiser Address of the event organiser who will manage the marketplace
      * @param _marketplaceFee Fee percentage charged by the marketplace on sales (1 = 1%)
      */
-    constructor(address _ticketFactoryAddress, address _ticketNFTAddress, address _organiser, uint256 _marketplaceFee) {
+    constructor(
+        address _festivalTokenAddress,
+        address _ticketFactoryAddress, 
+        address _ticketNFTAddress, 
+        address _organiser, 
+        uint256 _marketplaceFee
+    ) {
+        festivalToken = FestivalToken(_festivalTokenAddress);
         ticketFactory = TicketFactory(_ticketFactoryAddress);
         ticketNFT = TicketNFT(_ticketNFTAddress);
         organiser = _organiser;
@@ -86,24 +95,24 @@ contract TicketMarketplace {
      * @dev Requires payment equal to or greater than the listing price
      * A marketplace fee is deducted from the payment before transferring to the seller
      */
-    function buyTicket(uint256 _ticketId) external payable validListing(_ticketId) {
+    function buyTicket(uint256 _ticketId) external validListing(_ticketId) {
         ListingDetails memory listing = listings[_ticketId];
         address _seller = listing.seller;
         uint256 _sellingPrice = listing.sellingPrice;
-        
-        require(msg.value >= _sellingPrice, "Insufficient payment");
-        
+
         // Calculate marketplace fee
         uint256 _fee = (_sellingPrice * marketplaceFee) / 100;
-        uint256 _buyerPrice = _sellingPrice - _fee;
+
+        // Check if payment is sufficient
+        require(festivalToken.balanceOf(msg.sender) >= _sellingPrice + _fee, "Insufficient payment");
+
+        // Transfer tokens
+        festivalToken.transferFrom(msg.sender, _seller, _sellingPrice);
+        festivalToken.transferFrom(msg.sender, organiser, _fee);
         
         // Transfer ticket to buyer
         ticketNFT.transferFrom(_seller, msg.sender, _ticketId);
         ticketNFT.updateCustomersArray(_seller, msg.sender);
-        
-        // Transfer payment to seller
-        payable(_seller).transfer(_sellingPrice);
-        payable(organiser).transfer(_fee);
         
         // Remove listing
         delete listings[_ticketId];
@@ -158,6 +167,6 @@ contract TicketMarketplace {
      */
     function withdrawFees() external {
         require(msg.sender == organiser, "Only organiser can withdraw fees");
-        payable(organiser).transfer(address(this).balance);
+        festivalToken.transferCredit(organiser, festivalToken.balanceOf(address(this)));
     }
 }
