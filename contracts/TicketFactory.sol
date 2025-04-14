@@ -8,6 +8,7 @@ import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/Confir
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 
 import "./TicketNFT.sol";
+import "./FestivalToken.sol";
 import "./FestivalStatusVoting.sol";
 
 contract TicketFactory is FunctionsClient, ConfirmedOwner {
@@ -49,8 +50,9 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
     // State variable to store the returned character information
     string public fetchedAddress;
 
-    // Voting contract
-    FestivalStatusVoting public newVotingContract;
+    // Contracts
+    FestivalToken private festivalToken;
+    FestivalStatusVoting private newVotingContract;
 
     // Event organiser structure
     struct Organiser {
@@ -64,6 +66,7 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
         string eventId; // From Firebase/Firestore
         string eventName;
         string eventSymbol;
+        uint256 eventDateTime;
         address organiser;
         uint256 ticketPrice; // I include this too cause it makes sense for the factory to like "make" the contracts with a fixed price and total supply so can track easier (prevent fraud)
         uint256 totalSupply;
@@ -80,6 +83,7 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
         string eventId,
         string eventName,
         string eventSymbol,
+        uint256 eventDateTime,
         address organiser,
         address ticketContract,
         uint256 ticketPrice,        
@@ -98,7 +102,10 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
     /**
      * @notice Initializes the contract with the Chainlink router address and sets the contract owner
      */
-    constructor(address _votingContractAddress) FunctionsClient(router) ConfirmedOwner(msg.sender) {
+    constructor(address _festivalTokenAddress, address _votingContractAddress) FunctionsClient(router) ConfirmedOwner(msg.sender) {
+        require(_festivalTokenAddress != address(0), "Invalid voting contract address");
+        festivalToken = FestivalToken(_festivalTokenAddress);
+
         require(_votingContractAddress != address(0), "Invalid voting contract address");
         newVotingContract = FestivalStatusVoting(_votingContractAddress);
     }
@@ -171,6 +178,7 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
         string memory _eventId,
         string memory _eventName,
         string memory _eventSymbol,
+        uint256 _eventDateTime,
         uint256 _ticketPrice,        
         uint256 _totalSupply
     ) external returns (address) {
@@ -185,22 +193,23 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
             _ticketPrice,
             _totalSupply,
             msg.sender, // Organiser becomes owner
+            address(festivalToken), // Pass the festival token address
             address(newVotingContract) // Pass the voting contract address
         );
 
-        // TODO: update block.timestamp to the actual start date
-        newVotingContract.createVoting(_eventId, block.timestamp + 24 hours, address(newTicketContract));
+        // Create new voting contract for this event's status
+        newVotingContract.createVoting(_eventId, _eventDateTime, _eventDateTime + 3 days, address(newTicketContract));
         
         // Store event details
         events[_eventId] = Event({
             eventId: _eventId,
             eventName: _eventName,
             eventSymbol: _eventSymbol,
+            eventDateTime: _eventDateTime,
             organiser: msg.sender,
             ticketPrice: _ticketPrice,
             totalSupply: _totalSupply,
             isActive: true
-
         });
         
         // Add to organiser's events list
@@ -210,6 +219,7 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
             _eventId,
             _eventName,
             _eventSymbol,
+            _eventDateTime,
             msg.sender,
             address(newTicketContract),
             _ticketPrice,
@@ -228,13 +238,14 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
     function getEventDetails(string memory _eventId) external view returns (
         string memory eventName,
         string memory eventSymbol,
+        uint256 eventDateTime,
         address organiser,
         uint256 ticketPrice,
         uint256 totalSupply,
         bool isActive
     ) {
         Event storage e = events[_eventId];
-        return (e.eventName, e.eventSymbol, e.organiser, e.ticketPrice, e.totalSupply, e.isActive);
+        return (e.eventName, e.eventSymbol, e.eventDateTime, e.organiser, e.ticketPrice, e.totalSupply, e.isActive);
     }
 
 }

@@ -13,6 +13,7 @@ contract FestivalStatusVoting is Ownable {
         uint256 startDateTime;
         uint256 endDateTime;
         address ticketNFTAddress; // address of the ticket NFT contract
+        bool eventCancelStatus;
     }
 
     mapping(string => Voting) public votings; // mapping of event id to voting
@@ -46,7 +47,8 @@ contract FestivalStatusVoting is Ownable {
             yesVotes: 0,
             startDateTime: _startDateTime,
             endDateTime: _endDateTime,
-            ticketNFTAddress: _ticketNFTAddress
+            ticketNFTAddress: _ticketNFTAddress,
+            eventCancelStatus: false
         });
     }
 
@@ -81,8 +83,16 @@ contract FestivalStatusVoting is Ownable {
         emit Voted(_voter, _eventId, _voteChoice);
     }
 
-    function getVotingDetail(string memory _eventId) external view returns (Voting memory) {
-        return votings[_eventId];
+    function getVotingDetail(string memory _eventId) external view returns (
+        uint256 noVotes,
+        uint256 yesVotes,
+        uint256 startDateTime,
+        uint256 endDateTime,
+        address ticketNFTAddress,
+        bool eventCancelStatus
+    ) {
+        Voting storage v = votings[_eventId];
+        return (v.noVotes, v.yesVotes, v.startDateTime, v.endDateTime, v.ticketNFTAddress, v.eventCancelStatus);
     }
 
     function checkRefund(string memory _eventId) internal {
@@ -96,8 +106,12 @@ contract FestivalStatusVoting is Ownable {
 
         uint256 percentageNoVotes = (voting.noVotes * 100) / totalNumOfCustomers;
         if (percentageNoVotes >= REFUND_THRESHOLD) {
+            votings[_eventId].eventCancelStatus = true; // Set eventCancelStatus to true to indicate that the voting is canceled
+
+            // Refund all tickets
             TicketNFT(voting.ticketNFTAddress).refundAllTickets();
-            votings[_eventId].startDateTime = 0; // Set startDateTime to 0 to indicate that the voting is deleted
+            votings[_eventId].startDateTime = 0; // Set startDateTime to 0 to indicate that the voting has ended
+
             emit Refund(_eventId);
         }
     }
