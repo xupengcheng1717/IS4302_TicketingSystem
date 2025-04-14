@@ -12,6 +12,15 @@ interface IVoting {
         string memory eventId,
         bool voteChoice
     ) external;
+
+    function getVotingDetail(string memory _eventId) external view returns (
+        uint256 noVotes,
+        uint256 yesVotes,
+        uint256 startDateTime,
+        uint256 endDateTime,
+        address ticketNFTAddress,
+        bool eventCancelStatus
+    );
 }
 
 contract TicketNFT is AccessControl, ERC721Enumerable {
@@ -29,6 +38,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
 
     address private organiser;
     string private eventId;
+    uint256 private eventDateTime;
     uint256 private ticketPrice;
     uint256 private totalSupply;
 
@@ -52,6 +62,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         string memory _eventName,
         string memory _eventSymbol,
         string memory _eventId,
+        uint256 _eventDateTime,
         uint256 _ticketPrice,
         uint256 _totalSupply,
         address _organiser,
@@ -62,6 +73,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         _grantRole(MINTER_ROLE, organiser);
 
         eventId = _eventId;
+        eventDateTime = _eventDateTime;
         ticketPrice = _ticketPrice;
         totalSupply = _totalSupply;
         organiser = _organiser;
@@ -87,6 +99,15 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
 
     modifier organiserOnly() {
         require(msg.sender == organiser, "Only organiser can call this function");
+        _;
+    }
+
+    modifier validWithdrawal() {
+        require(block.timestamp > eventDateTime, "Event has not occurred yet");
+
+        (, , , uint256 endDateTime, , bool eventCancelStatus) = votingContract.getVotingDetail(eventId);
+        require(!eventCancelStatus, "Event is cancelled");
+        require(block.timestamp > endDateTime, "Voting has not ended yet");
         _;
     }
 
@@ -185,7 +206,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
 
         uint256[] memory purchasedTickets = new uint256[](_numOfTickets);
 
-        festivalToken.transferCreditFrom(msg.sender, organiser, _totalPrice);
+        festivalToken.transferCreditFrom(msg.sender, address(this), _totalPrice);
         
         for (uint256 i = 0; i < _numOfTickets; i++) {
             uint256 _soldTicketId = saleTicketId;
@@ -310,7 +331,16 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         return true;
     }
 
+    function withdrawAllFunds() public organiserOnly() validWithdrawal() {
+        uint256 balance = festivalToken.balanceOf(address(this));
+        require(balance > 0, "No funds to withdraw");
+        festivalToken.transferCredit(organiser, balance);
+    }
+
     function refundAllTickets() public organiserOnly() {
+        (, , , , , bool eventCancelStatus) = votingContract.getVotingDetail(eventId);
+        require(eventCancelStatus, "Event is not cancelled");
+
         for (uint256 i = 0; i < customers.length; i++) {
             address customer = customers[i];
             uint256 balance = balanceOf(customer);
@@ -318,7 +348,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
             for (uint256 j = 0; j < balance; j++) {
                 uint256 tokenId = tokenOfOwnerByIndex(customer, j);
                 transferFrom(customer, organiser, tokenId);
-                festivalToken.transferCreditFrom(organiser, customer, ticketPrice);
+                festivalToken.transferCredit(customer, ticketPrice);
             }
         }
     }
