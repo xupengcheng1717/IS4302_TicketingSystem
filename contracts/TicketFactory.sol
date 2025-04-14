@@ -190,6 +190,7 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
             _eventName,
             _eventSymbol,
             _eventId,
+            _eventDateTime,
             _ticketPrice,
             _totalSupply,
             msg.sender, // Organiser becomes owner

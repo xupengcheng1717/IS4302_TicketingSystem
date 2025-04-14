@@ -72,7 +72,7 @@ contract TicketMarketplace {
         
         // Check if selling price is within allowed range (110% of purchase price)
         require(
-            _sellingPrice <= _purchasePrice + ((_purchasePrice * 110) / 100),
+            _sellingPrice <= (_purchasePrice * 110) / 100,
             "Re-selling price exceeds 110%"
         );
         
@@ -159,14 +159,5 @@ contract TicketMarketplace {
         require(msg.sender == organiser, "Only organiser can set fee");
         require(_newFee <= 10, "Fee too high"); // Max 10%
         marketplaceFee = _newFee;
-    }
-    
-    /**
-     * @notice Allows the organiser to withdraw accumulated marketplace fees
-     * @dev Only the organiser can withdraw fees
-     */
-    function withdrawFees() external {
-        require(msg.sender == organiser, "Only organiser can withdraw fees");
-        festivalToken.transferCredit(organiser, festivalToken.balanceOf(address(this)));
     }
 }

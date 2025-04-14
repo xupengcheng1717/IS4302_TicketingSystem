@@ -40,7 +40,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
     string private eventId;
     uint256 private eventDateTime;
     uint256 private ticketPrice;
-    uint256 private totalSupply;
+    uint256 private maxSupply;
 
     mapping(uint256 => TicketDetails) private ticketDetails;
     address[] private customers;
@@ -54,7 +54,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
      * @param _eventSymbol The symbol for the event's tickets
      * @param _eventId Unique identifier for the event
      * @param _ticketPrice Price of each ticket in wei
-     * @param _totalSupply Maximum number of tickets available for the event
+     * @param _maxSupply Maximum number of tickets available for the event
      * @param _organiser Address of the event organiser who will have admin and minter roles
      * @param _votingContractAddress Address of the voting contract
      */
@@ -64,28 +64,32 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         string memory _eventId,
         uint256 _eventDateTime,
         uint256 _ticketPrice,
-        uint256 _totalSupply,
+        uint256 _maxSupply,
         address _organiser,
         address _festivalTokenAddress,
         address _votingContractAddress
     ) ERC721(_eventName, _eventSymbol) {
+        organiser = _organiser;
         _grantRole(DEFAULT_ADMIN_ROLE, organiser);
         _grantRole(MINTER_ROLE, organiser);
 
+        // Set other variables
         eventId = _eventId;
         eventDateTime = _eventDateTime;
         ticketPrice = _ticketPrice;
-        totalSupply = _totalSupply;
-        organiser = _organiser;
+        maxSupply = _maxSupply;
         festivalToken = FestivalToken(_festivalTokenAddress);
         votingContract = IVoting(_votingContractAddress);
+
+        // Grant approval to contract for all organiser's tokens
+        _setApprovalForAll(organiser, address(this), true);
     }
 
     /**
      * @notice Modifier to check if the maximum ticket limit has not been exceeded
      */
     modifier isValidTicketCount() {
-        require(ticketId < totalSupply, "Max ticket limit exceeded!");
+        require(ticketId < maxSupply, "Max ticket limit exceeded!");
         _;
     }
 
@@ -158,7 +162,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         isMinterRole
     {
         require(
-            ticketCounts() + _numOfTickets <= totalSupply,
+            ticketCounts() + _numOfTickets <= maxSupply,
             "Exceeds maximum supply"
         );
 
@@ -179,7 +183,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         address _to,
         uint256 _tokenId
     ) public override(ERC721, IERC721) {
-        // Allow transfers if sender is the marketplace or has marketplace role
+        // Allow transfers if sender is the marketplace, has marketplace role, or is the contract itself
         if (!hasRole(MARKETPLACE_ROLE, msg.sender)) {
             require(
                 ownerOf(_tokenId) == msg.sender || 
@@ -209,12 +213,11 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         festivalToken.transferCreditFrom(msg.sender, address(this), _totalPrice);
         
         for (uint256 i = 0; i < _numOfTickets; i++) {
-            uint256 _soldTicketId = saleTicketId;
-            require(organiser == ownerOf(_soldTicketId), "Only organiser can sell this ticket");
-            
-            transferFrom(organiser, msg.sender, _soldTicketId);
-            purchasedTickets[i] = _soldTicketId;
             saleTicketId++;
+            require(organiser == ownerOf(saleTicketId), "Only organiser can sell this ticket");
+            
+            _safeTransfer(organiser, msg.sender, saleTicketId, "");
+            purchasedTickets[i] = saleTicketId;
         }
 
         addCustomer(msg.sender);
@@ -294,12 +297,13 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
     }
 
     function removeCustomer(address _customer) internal {
-        require(balanceOf(_customer) == 0, "Customer still holds tickets");
-        for (uint256 i = 0; i < customers.length; i++) {
-            if (customers[i] == _customer) {
-                customers[i] = customers[customers.length - 1];
-                customers.pop();
-                break;
+        if (balanceOf(_customer) == 0) {
+            for (uint256 i = 0; i < customers.length; i++) {
+                if (customers[i] == _customer) {
+                    customers[i] = customers[customers.length - 1];
+                    customers.pop();
+                    break;
+                }
             }
         }
     }

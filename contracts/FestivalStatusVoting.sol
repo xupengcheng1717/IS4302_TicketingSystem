@@ -67,7 +67,7 @@ contract FestivalStatusVoting is Ownable {
         emit Voted(msg.sender, _eventId, _voteChoice);
     }
     
-    function voteFromTicketNFT(address _voter, string memory _eventId, bool _voteChoice) external validVoting(_eventId) validVote(_voter, _eventId) returns (bool success) {
+    function voteFromTicketNFT(address _voter, string memory _eventId, bool _voteChoice) external validVoting(_eventId) validVote(_voter, _eventId) {
         Voting storage voting = votings[_eventId];
         require(msg.sender == voting.ticketNFTAddress, "Only ticket NFT contract can call this function");
 
