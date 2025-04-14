@@ -15,6 +15,19 @@ contract TicketFactory {
     FestivalStatusVoting private newVotingContract;
     MockOracle private oracle;
 
+    /**
+     * @notice Initializes the contract with the Chainlink router address and sets the contract owner
+     */
+    constructor(address _festivalTokenAddress, address _votingContractAddress, address _oracleAddress) {
+        oracle = MockOracle(_oracleAddress);
+
+        require(_festivalTokenAddress != address(0), "Invalid voting contract address");
+        festivalToken = FestivalToken(_festivalTokenAddress);
+
+        require(_votingContractAddress != address(0), "Invalid voting contract address");
+        newVotingContract = FestivalStatusVoting(_votingContractAddress);
+    }
+
     // Event organiser structure
     struct Organiser {
         address walletAddress;
@@ -30,7 +43,7 @@ contract TicketFactory {
         uint256 eventDateTime;
         string eventLocation;
         string eventDescription;
-        string verifiedAddress;
+        address verifiedAddress;
         address organiser;
         uint256 ticketPrice; // I include this too cause it makes sense for the factory to like "make" the contracts with a fixed price and total supply so can track easier (prevent fraud)
         uint256 totalSupply;
@@ -39,8 +52,7 @@ contract TicketFactory {
     }
     
     // Mappings
-    mapping(string => Event) public events; // eventId => Event
-    mapping(address => string[]) public organiserEvents; // organiser => eventIds
+    mapping(string => Event) public events; // eventId => Event - local database to store the events
     
     // Events
     event EventCreated(
@@ -53,7 +65,6 @@ contract TicketFactory {
         uint256 ticketPrice,        
         uint256 totalSupply
     );
-    event OracleUpdated(address indexed newOracle);
     
      // Event to log responses
     event Response(
@@ -62,42 +73,32 @@ contract TicketFactory {
         bytes response,
         bytes err
     );
-
-    /**
-     * @notice Initializes the contract with the Chainlink router address and sets the contract owner
-     */
-    constructor(address _festivalTokenAddress, address _votingContractAddress, address _oracleAddress) {
-        oracle = MockOracle(_oracleAddress);
-
-        require(_festivalTokenAddress != address(0), "Invalid voting contract address");
-        festivalToken = FestivalToken(_festivalTokenAddress);
-
-        require(_votingContractAddress != address(0), "Invalid voting contract address");
-        newVotingContract = FestivalStatusVoting(_votingContractAddress);
-    }
     
     // Create a new event and NFT ticket contract
     function createEvent(
         string memory _eventId,
-        //string memory _eventName,
         string memory _eventSymbol,
-        //string memory _eventLocation,
-        //string memory _eventDescription,
-        //string memory _verifiedAddress,
-        //uint256 _eventDateTime,
         uint256 _ticketPrice,        
         uint256 _totalSupply
     ) external returns (address) {
+        (
+            address verifiedAddress,
+            string memory eventName,
+            uint256 eventDateTime,
+            string memory eventLocation,
+            string memory eventDescription
+        ) = oracle.getEventData(_eventId);
+
         // uses eventID to see if he is a verified organiser
-        require(msg.sender == oracle.getEventData(_eventId)[0], "Not a verified organiser");
+        require(msg.sender == verifiedAddress, "Not a verified organiser");
         require(bytes(events[_eventId].eventId).length == 0, "Event ID already exists");
         
         // Create new NFT contract for this event's tickets
         TicketNFT newTicketContract = new TicketNFT(
-            oracle.EventDatas[_eventId][1], // eventName    
+            eventName,  
             _eventSymbol,
             _eventId,
-            oracle.EventDatas[_eventId][0], // verifiedAddress 
+            eventDateTime,
             _ticketPrice,
             _totalSupply,
             msg.sender, // Organiser becomes owner
@@ -106,43 +107,35 @@ contract TicketFactory {
         );
 
         // Create new voting contract for this event's status
-        newVotingContract.createVoting(_eventId, _eventDateTime, _eventDateTime + 3 days, address(newTicketContract));
+        newVotingContract.createVoting(_eventId, eventDateTime, eventDateTime + 3 days, address(newTicketContract));
         
         // Store event details
         events[_eventId] = Event({
-            eventId: _eventId,
-            eventName: _eventName,
-            eventSymbol: _eventSymbol,
-            eventDateTime: _eventDateTime,
-            eventLocation: "", // Placeholder for location
-            eventDescription: "", // Placeholder for description
-            verifiedAddress: "",
-            organiser: msg.sender,
-            ticketPrice: _ticketPrice,
-            totalSupply: _totalSupply,
-            isActive: true
-        });
-        
-        // Add to organiser's events list
-        organiserEvents[msg.sender].push(_eventId);
+                eventId: _eventId,
+                eventName: eventName,
+                eventSymbol: _eventSymbol,
+                eventDateTime: eventDateTime,
+                eventLocation: eventLocation,
+                eventDescription: eventDescription,
+                verifiedAddress: verifiedAddress, // assuming you want to store address as string
+                organiser: msg.sender,
+                ticketPrice: _ticketPrice,
+                totalSupply: _totalSupply,
+                isActive: true
+            });
         
         emit EventCreated(
-            _eventId,
-            oracle.EventDatas[_eventId][1], // eventName
-            _eventSymbol,
-            oracle.EventDatas[_eventId][2], // eventDateTime
-            msg.sender,
-            address(newTicketContract),
-            _ticketPrice,
-            _totalSupply
+                _eventId,
+                eventName,
+                _eventSymbol,
+                eventDateTime,
+                msg.sender,
+                address(newTicketContract),
+                _ticketPrice,
+                _totalSupply
         );
         
         return address(newTicketContract);
-    }
-    
-    // Get organiser's events
-    function getOrganiserEvents(address _organiser) external view returns (string[] memory) {
-        return organiserEvents[_organiser];
     }
     
     // Get event details
@@ -158,5 +151,4 @@ contract TicketFactory {
         Event storage e = events[_eventId];
         return (e.eventName, e.eventSymbol, e.eventDateTime, e.organiser, e.ticketPrice, e.totalSupply, e.isActive);
     }
-
 }

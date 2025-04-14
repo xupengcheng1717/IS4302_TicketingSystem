@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 contract MockOracle {
     struct EventData {
-        string verifiedAddress;
+        address verifiedAddress;
         string eventName;
         uint256 eventDateTime;
         string eventLocation;
@@ -15,7 +15,7 @@ contract MockOracle {
     constructor() {
         // Simulate data from database.json
         events["G5vYZb2n_2V2d"] = EventData({
-            verifiedAddress: "0x400322347ad8fF4c9e899044e3aa335F53fFA42B",
+            verifiedAddress: 0x400322347ad8fF4c9e899044e3aa335F53fFA42B,
             eventName: "Today... is the Day",
             eventDateTime: 1746037800,
             eventLocation: "Singapore Indoor Stadium",
@@ -26,7 +26,7 @@ contract MockOracle {
 
 
     function getEventData(string memory eventID) external view returns (
-        string memory verifiedAddress,
+        address verifiedAddress,
         string memory eventName,
         uint256 eventDateTime,  
         string memory eventLocation,
