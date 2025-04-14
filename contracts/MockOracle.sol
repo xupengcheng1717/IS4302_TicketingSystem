@@ -4,20 +4,18 @@ pragma solidity ^0.8.0;
 contract MockOracle {
     struct EventData {
         string verifiedAddress;
-        string eventId;
         string eventName;
         uint256 eventDateTime;
         string eventLocation;
         string eventDescription;
     }
 
-    mapping(string => EventData) private events;
+    mapping(string => EventData) private events; // eventid => EventData
 
     constructor() {
         // Simulate data from database.json
-        events["kx3odqFYCSxxlyjPr0Bq"] = EventData({
+        events["G5vYZb2n_2V2d"] = EventData({
             verifiedAddress: "0x400322347ad8fF4c9e899044e3aa335F53fFA42B",
-            eventId: "G5vYZb2n_2V2d",
             eventName: "Today... is the Day",
             eventDateTime: 1746037800,
             eventLocation: "Singapore Indoor Stadium",
@@ -25,18 +23,18 @@ contract MockOracle {
         });
     }
 
-    function getEventData(string memory key) external view returns (
+
+
+    function getEventData(string memory eventID) external view returns (
         string memory verifiedAddress,
-        string memory eventId,
         string memory eventName,
         uint256 eventDateTime,  
         string memory eventLocation,
         string memory eventDescription
     ) {
-        EventData memory data = events[key];
+        EventData memory data = events[eventID];
         return (
             data.verifiedAddress,
-            data.eventId,
             data.eventName,
             data.eventDateTime,
             data.eventLocation,
