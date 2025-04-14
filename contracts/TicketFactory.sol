@@ -67,6 +67,9 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
         string eventName;
         string eventSymbol;
         uint256 eventDateTime;
+        string eventLocation;
+        string eventDescription;
+        string verifiedAddress;
         address organiser;
         uint256 ticketPrice; // I include this too cause it makes sense for the factory to like "make" the contracts with a fixed price and total supply so can track easier (prevent fraud)
         uint256 totalSupply;
@@ -178,6 +181,9 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
         string memory _eventId,
         string memory _eventName,
         string memory _eventSymbol,
+        string memory _eventLocation,
+        string memory _eventDescription,
+        string memory _verifiedAddress,
         uint256 _eventDateTime,
         uint256 _ticketPrice,        
         uint256 _totalSupply
@@ -190,6 +196,7 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
             _eventName,
             _eventSymbol,
             _eventId,
+            _eventDateTime,
             _ticketPrice,
             _totalSupply,
             msg.sender, // Organiser becomes owner
@@ -206,6 +213,9 @@ contract TicketFactory is FunctionsClient, ConfirmedOwner {
             eventName: _eventName,
             eventSymbol: _eventSymbol,
             eventDateTime: _eventDateTime,
+            eventLocation: "", // Placeholder for location
+            eventDescription: "", // Placeholder for description
+            verifiedAddress: "",
             organiser: msg.sender,
             ticketPrice: _ticketPrice,
             totalSupply: _totalSupply,
