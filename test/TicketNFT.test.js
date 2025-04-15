@@ -19,7 +19,7 @@ describe("TicketNFT", function () {
     // Test variables
     const eventId = "G5vYZb2n_2V2d";
     const eventSymbol = "ANDY2024";
-    const ticketPrice = ethers.parseEther("0.1");
+    const ticketPrice = 1;
     const maxSupply = 100;
     let eventName, eventDateTime, eventLocation, eventDescription;
 
@@ -73,7 +73,7 @@ describe("TicketNFT", function () {
 
         // Log balances to verify
         const balance = await festivalToken.balanceOf(customer.address);
-        console.log("Initial customer token balance:", ethers.formatEther(balance));
+        console.log("Initial customer token balance:", balance);
 
         await festivalToken.connect(customer).approve(await ticketNFT.getAddress(), ethers.parseEther("10.0"));
     });
@@ -116,13 +116,18 @@ describe("TicketNFT", function () {
 
     describe("Ticket Purchase", function () {
         before(async function () {
-            // Clear previous mints and start fresh
+            // Mint some tickets for testing
             await ticketNFT.connect(organiser).bulkMintTickets(5, organiser.address);
+        });
+
+        it("Should have empty customer list before purchase", async function () {
+            expect(await ticketNFT.isCustomerExists(customer.address)).to.be.false;
+            expect(await ticketNFT.getNumberOfCustomers()).to.equal(0);
         });
 
         it("Should allow customers to buy tickets", async function () {
             const purchaseQty = 2;
-            const tx = await ticketNFT.connect(customer).buyTickets(purchaseQty);
+            await ticketNFT.connect(customer).buyTickets(purchaseQty);
             
             // Get the purchased tickets from transaction events or query the contract
             for (let i = 1; i <= purchaseQty; i++) {
@@ -132,9 +137,20 @@ describe("TicketNFT", function () {
             }
         });
 
+        it("Should update token balances after purchase", async function () {
+            expect(await festivalToken.balanceOf(await ticketNFT.getAddress())).to.equal(2);
+            expect(await festivalToken.balanceOf(customer.address)).to.equal(98);
+        });
+
         it("Should update customer list after purchase", async function () {
             expect(await ticketNFT.isCustomerExists(customer.address)).to.be.true;
             expect(await ticketNFT.getNumberOfCustomers()).to.equal(1);
+        });
+
+        it("Should not allow customers to buy more tickets than available", async function () {
+            await expect(
+                ticketNFT.connect(customer).buyTickets(10)
+            ).to.be.revertedWith("Not enough tickets minted");
         });
 
         it("Should not allow purchase without sufficient tokens", async function () {
@@ -151,6 +167,7 @@ describe("TicketNFT", function () {
             expect(await ticketNFT.hasRole(MARKETPLACE_ROLE, marketplace.address)).to.be.true;
         });
 
+        // Buyer and seller update logic will be tested in marketplace test file
         it("Should allow marketplace to update customer array", async function () {
             const newCustomer = owner;
             await ticketNFT.connect(marketplace).updateCustomersArray(customer.address, newCustomer.address);
@@ -179,6 +196,14 @@ describe("TicketNFT", function () {
             await ticketNFT.connect(organiser).scanNFT(customer.address, ticketId);
             const ticketDetails = await ticketNFT.getTicketDetails(ticketId);
             expect(ticketDetails.isUsed).to.be.true;
+            // voteFromtTicketNFT function will be tested in voting test file
+        });
+
+        it("Should not allow scanning tickets that don't belong to the customer", async function () {
+            const ticketId = 5;
+            await expect(
+                ticketNFT.connect(organiser).scanNFT(customer.address, ticketId)
+            ).to.be.revertedWith("Customer does not hold this ticket");
         });
 
         it("Should not allow scanning used tickets", async function () {
@@ -190,22 +215,21 @@ describe("TicketNFT", function () {
     });
 
     describe("Refunds and Withdrawals", function () {
+        it("Should not allow organiser to withdraw funds before voting ends", async function () {
+            // Move time to after event starts but before the voting ends (event time + 1 day)
+            // await time.increaseTo(eventDateTime + BigInt(86400));
+            await expect(ticketNFT.connect(organiser).withdrawFunds()).to.be.revertedWith("Voting has not ended yet");
+        });
+
         it("Should allow organiser to withdraw funds after event", async function () {
-            // Move time to after the event (event time + 4 days)
-            await time.increaseTo(eventDateTime + BigInt(86400 * 4));
+            // Move time to after the voting (event time + 2 days)
+            await time.increaseTo(eventDateTime + BigInt(86400 * 2));
             
             const balance = await festivalToken.balanceOf(await ticketNFT.getAddress());
-            await ticketNFT.connect(organiser).withdrawAllFunds();
+            await ticketNFT.connect(organiser).withdrawFunds();
             expect(await festivalToken.balanceOf(organiser.address)).to.equal(balance);
         });
 
-        it("Should handle refunds when event is cancelled", async function () {
-            // Mock event cancellation through voting contract
-            // This would require additional setup in the voting contract
-            // Test refund functionality
-            await expect(
-                ticketNFT.connect(organiser).refundAllTickets()
-            ).to.be.revertedWith("Event is not cancelled");
-        });
+        // Refund logic will be tested in voting test file
     });
 });

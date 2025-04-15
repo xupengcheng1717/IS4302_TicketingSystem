@@ -18,13 +18,12 @@ contract TicketFactory {
     constructor(address _festivalTokenAddress, address _votingContractAddress, address _oracleAddress) {
         oracle = MockOracle(_oracleAddress);
 
-        require(_festivalTokenAddress != address(0), "Invalid voting contract address");
+        require(_festivalTokenAddress != address(0), "Invalid token contract address");
         festivalToken = FestivalToken(_festivalTokenAddress);
 
         require(_votingContractAddress != address(0), "Invalid voting contract address");
         newVotingContract = FestivalStatusVoting(_votingContractAddress);
     }
-
     
     // Event structure
     struct Event {
@@ -56,7 +55,6 @@ contract TicketFactory {
         uint256 totalSupply
     );
     
-    
     // Create a new event and NFT ticket contract
     function createEvent(
         string memory _eventId,
@@ -83,7 +81,7 @@ contract TicketFactory {
         require(msg.sender == newEvent.organiser, "Not a verified organiser");
         require(bytes(events[_eventId].eventId).length == 0, "Event ID already exists");
         
-        // Create new NFT contract
+        // Create new TicketNFT contract
         TicketNFT newTicketContract = new TicketNFT(
             newEvent.eventName,  
             newEvent.eventSymbol,

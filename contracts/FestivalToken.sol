@@ -18,7 +18,7 @@ contract FestivalToken is ERC20, Ownable {
 
     function getCredit() public payable returns(uint256) {
         require(msg.value > 0, "Must send ETH to receive tokens");
-        uint256 amount = (msg.value * 1 ether) / rate;
+        uint256 amount = msg.value / rate;
         _mint(msg.sender, amount);
         emit CreditReceived(msg.sender, amount);
         return amount;
