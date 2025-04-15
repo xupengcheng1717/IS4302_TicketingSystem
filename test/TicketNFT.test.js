@@ -19,7 +19,7 @@ describe("TicketNFT", function () {
     // Test variables
     const eventId = "G5vYZb2n_2V2d";
     const eventSymbol = "ANDY2024";
-    const ticketPrice = 1;
+    const ticketPrice = 10;
     const maxSupply = 100;
     let eventName, eventDateTime, eventLocation, eventDescription;
 
@@ -138,8 +138,8 @@ describe("TicketNFT", function () {
         });
 
         it("Should update token balances after purchase", async function () {
-            expect(await festivalToken.balanceOf(await ticketNFT.getAddress())).to.equal(2);
-            expect(await festivalToken.balanceOf(customer.address)).to.equal(98);
+            expect(await festivalToken.balanceOf(await ticketNFT.getAddress())).to.equal(20);
+            expect(await festivalToken.balanceOf(customer.address)).to.equal(80);
         });
 
         it("Should update customer list after purchase", async function () {

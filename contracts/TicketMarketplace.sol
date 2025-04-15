@@ -6,59 +6,54 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./FestivalToken.sol";
 import "./TicketNFT.sol";
 
-/**
- * @title TicketMarketplace
- * @dev A marketplace contract for secondary sales of event tickets
- * Allows users to list, buy, and unlist tickets with price restrictions
- * and marketplace fees
- */
 contract TicketMarketplace {
+    // Details of a ticket listing
     struct ListingDetails {
         uint256 sellingPrice;
         address seller; // assume tickets can only be sold through marketplace (prevent double selling)
         bool isActive;
     }
 
+    // Contracts
     FestivalToken private festivalToken;
     TicketNFT private ticketNFT;
+
+    // Marketplace details
     address private organiser;
-    uint256 private marketplaceFee; // Fee percentage (e.g., 1 = 1%)
+    uint256 private marketplaceFee; // integer in tokens
     
+    // Mapping from ticket ID to listing details
     mapping(uint256 => ListingDetails) private listings;
 
     event TicketListed(uint256 indexed ticketId, uint256 price, address seller);
     event TicketSold(uint256 indexed ticketId, uint256 price, address seller, address buyer);
     event TicketUnlisted(uint256 indexed ticketId);
 
-    /**
-     * @notice Initializes the marketplace with a reference to the ticket NFT contract
-     * @param _ticketNFTAddress Address of the TicketNFT contract
-     * @param _organiser Address of the event organiser who will manage the marketplace
-     * @param _marketplaceFee Fee percentage charged by the marketplace on sales (1 = 1%)
-     */
     constructor(
         address _festivalTokenAddress,
         address _ticketNFTAddress, 
         address _organiser, 
         uint256 _marketplaceFee
     ) {
+        require(_festivalTokenAddress != address(0), "Invalid token contract address");
         festivalToken = FestivalToken(_festivalTokenAddress);
+
+        require(_ticketNFTAddress!= address(0), "Invalid ticket contract address");
         ticketNFT = TicketNFT(_ticketNFTAddress);
+
         organiser = _organiser;
+
+        require(_marketplaceFee <= 10, "Marketplace fee too high"); // Max 10 tokens
         marketplaceFee = _marketplaceFee;
     }
 
+    // Modifier to check if a ticket is listed for sale
     modifier validListing(uint256 _ticketId) {
         require(listings[_ticketId].isActive, "Ticket not listed for sale");
         _;
     }
 
-    /**
-     * @notice Lists a ticket for sale on the marketplace
-     * @param _ticketId ID of the ticket to list
-     * @param _sellingPrice Price at which to list the ticket (in wei)
-     * @dev Price cannot exceed 110% of the original purchase price
-     */
+    // Lists a ticket for sale on the marketplace
     function listTicket(uint256 _ticketId, uint256 _sellingPrice) external {
         require(ticketNFT.ownerOf(_ticketId) == msg.sender, "Not the ticket owner");
         require(!listings[_ticketId].isActive, "Ticket already listed");
@@ -85,29 +80,23 @@ contract TicketMarketplace {
         emit TicketListed(_ticketId, _sellingPrice, msg.sender);
     }
     
-    /**
-     * @notice Allows a user to purchase a listed ticket
-     * @param _ticketId ID of the ticket to purchase
-     * @dev Requires payment equal to or greater than the listing price
-     * A marketplace fee is deducted from the payment before transferring to the seller
-     */
+    // Allows a user to purchase a listed ticket
     function buyTicket(uint256 _ticketId) external validListing(_ticketId) {
         ListingDetails memory listing = listings[_ticketId];
         address _seller = listing.seller;
         uint256 _sellingPrice = listing.sellingPrice;
 
-        // Calculate marketplace fee
-        uint256 _fee = (_sellingPrice * marketplaceFee) / 100;
-
-        // Check if payment is sufficient
-        require(festivalToken.balanceOf(msg.sender) >= _sellingPrice + _fee, "Insufficient payment");
-
+        // Check if buyer has sufficient tokens
+        require(festivalToken.balanceOf(msg.sender) >= _sellingPrice + marketplaceFee, "Insufficient tokens");
+        
         // Transfer tokens
         festivalToken.transferFrom(msg.sender, _seller, _sellingPrice);
-        festivalToken.transferFrom(msg.sender, organiser, _fee);
+        festivalToken.transferFrom(msg.sender, organiser, marketplaceFee);
         
         // Transfer ticket to buyer
         ticketNFT.transferFrom(_seller, msg.sender, _ticketId);
+
+        // Update customers array in ticketNFT contract
         ticketNFT.updateCustomersArray(_seller, msg.sender);
         
         // Remove listing
@@ -116,11 +105,7 @@ contract TicketMarketplace {
         emit TicketSold(_ticketId, _sellingPrice, _seller, msg.sender);
     }
     
-    /**
-     * @notice Allows a seller to remove their ticket from sale
-     * @param _ticketId ID of the ticket to unlist
-     * @dev Only the seller of the ticket can unlist it
-     */
+    // Allows a seller to remove their ticket from sale
     function unlistTicket(uint256 _ticketId) external validListing(_ticketId) {
         require(listings[_ticketId].seller == msg.sender, "Not the seller");
         
@@ -130,13 +115,7 @@ contract TicketMarketplace {
         emit TicketUnlisted(_ticketId);
     }
     
-    /**
-     * @notice Returns details about a specific ticket listing
-     * @param _ticketId ID of the ticket to query
-     * @return price The selling price of the ticket
-     * @return seller The address of the seller
-     * @return isActive Whether the listing is currently active
-     */
+    // Returns details about a specific ticket listing
     function getListingDetails(uint256 _ticketId) external view validListing(_ticketId) returns (
         uint256 price, 
         address seller, 
@@ -146,14 +125,15 @@ contract TicketMarketplace {
         return (listing.sellingPrice, listing.seller, listing.isActive);
     }
     
-    /**
-     * @notice Allows the organiser to update the marketplace fee
-     * @param _newFee New fee percentage (1 = 1%)
-     * @dev Fee cannot exceed 10%
-     */
+    // Allows the organiser to update the marketplace fee
     function setMarketplaceFee(uint256 _newFee) external {
         require(msg.sender == organiser, "Only organiser can set fee");
-        require(_newFee <= 10, "Fee too high"); // Max 10%
+        require(_newFee <= 10, "Marketplace fee too high"); // Max 10%
         marketplaceFee = _newFee;
+    }
+
+    // Returns marketplace fee
+    function getMarketplaceFee() external view returns (uint256) {
+        return marketplaceFee;
     }
 }

@@ -22,9 +22,9 @@ describe("TicketMarketplace", function () {
     // Test variables
     const eventId = "G5vYZb2n_2V2d";
     const eventSymbol = "ANDY2024";
-    const ticketPrice = ethers.parseEther("0.1");
+    const ticketPrice = 10;
     const maxSupply = 100;
-    const marketplaceFee = 5; // 5% fee
+    const marketplaceFee = 1; // 1 token per transaction
     let eventName, eventDateTime, eventLocation, eventDescription;
 
     before(async function () {
@@ -129,7 +129,7 @@ describe("TicketMarketplace", function () {
 
         it("Should not allow listing above 110% of original price", async function () {
             const ticketId = 2;
-            const sellingPrice = ticketPrice * BigInt(2); // 200% of original price
+            const sellingPrice = ticketPrice * 2; // 200% of original price
             
             // Approve marketplace (even though the listing will fail)
             await ticketNFT.connect(seller).setApprovalForAll(await marketplace.getAddress(), true);
@@ -143,25 +143,14 @@ describe("TicketMarketplace", function () {
     describe("Ticket Purchase", function () {
         it("Should allow buyer to purchase a listed ticket", async function () {
             const ticketId = 1;
-            const listing = await marketplace.getListingDetails(ticketId);
-            const totalPrice = listing[0] + (listing[0] * BigInt(marketplaceFee)) / 100n;
-            
             await marketplace.connect(buyer).buyTicket(ticketId);
-            
             expect(await ticketNFT.ownerOf(ticketId)).to.equal(buyer.address);
         });
 
-        it("Should transfer fees to organiser", async function () {
-            const initialBalance = await festivalToken.balanceOf(organiser.address);
-            const ticketId = 3;
-            const sellingPrice = ticketPrice;
-            
-            await ticketNFT.connect(seller).approve(await marketplace.getAddress(), ticketId);
-            await marketplace.connect(seller).listTicket(ticketId, sellingPrice);
-            await marketplace.connect(buyer).buyTicket(ticketId);
-            
-            const finalBalance = await festivalToken.balanceOf(organiser.address);
-            expect(finalBalance).to.be.gt(initialBalance);
+        it("Should update token balances of buyer, seller, and organiser", async function () {
+            expect(await festivalToken.balanceOf(buyer.address)).to.equal(89);
+            expect(await festivalToken.balanceOf(seller.address)).to.equal(110);
+            expect(await festivalToken.balanceOf(organiser.address)).to.equal(1);
         });
     });
 
@@ -182,24 +171,17 @@ describe("TicketMarketplace", function () {
 
     describe("Marketplace Administration", function () {
         it("Should allow organiser to update marketplace fee", async function () {
-            const newFee = 7; // 7%
+            const newFee = 7;
             await marketplace.connect(organiser).setMarketplaceFee(newFee);
             
             // verify the fee has been updated
-            const ticketId = 5;
-            const sellingPrice = ticketPrice;
-            
-            await ticketNFT.connect(seller).approve(await marketplace.getAddress(), ticketId);
-            await marketplace.connect(seller).listTicket(ticketId, sellingPrice);
-            
-            // The purchase should succeed with the new fee
-            await marketplace.connect(buyer).buyTicket(ticketId);
+            expect(await marketplace.getMarketplaceFee()).to.equal(newFee); 
         });
 
-        it("Should not allow fee above 10%", async function () {
+        it("Should not allow fee above 10 tokens", async function () {
             await expect(
                 marketplace.connect(organiser).setMarketplaceFee(11)
-            ).to.be.revertedWith("Fee too high");
+            ).to.be.revertedWith("Marketplace fee too high");
         });
     });
 });

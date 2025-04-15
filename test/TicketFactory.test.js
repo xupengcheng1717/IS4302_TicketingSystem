@@ -18,7 +18,7 @@ describe("TicketFactory", function () {
     // Test variables
     const eventId = "G5vYZb2n_2V2d"; // Use the predefined event ID from MockOracle
     const eventSymbol = "ANDY2024";
-    const ticketPrice = ethers.parseEther("0.1");
+    const ticketPrice = 10;
     const totalSupply = 100;
 
     before(async function () {
