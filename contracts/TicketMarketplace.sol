@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./FestivalToken.sol";
-import "./TicketFactory.sol";
 import "./TicketNFT.sol";
 
 /**
@@ -21,7 +20,6 @@ contract TicketMarketplace {
     }
 
     FestivalToken private festivalToken;
-    TicketFactory private ticketFactory;
     TicketNFT private ticketNFT;
     address private organiser;
     uint256 private marketplaceFee; // Fee percentage (e.g., 1 = 1%)
@@ -40,13 +38,11 @@ contract TicketMarketplace {
      */
     constructor(
         address _festivalTokenAddress,
-        address _ticketFactoryAddress, 
         address _ticketNFTAddress, 
         address _organiser, 
         uint256 _marketplaceFee
     ) {
         festivalToken = FestivalToken(_festivalTokenAddress);
-        ticketFactory = TicketFactory(_ticketFactoryAddress);
         ticketNFT = TicketNFT(_ticketNFTAddress);
         organiser = _organiser;
         marketplaceFee = _marketplaceFee;
