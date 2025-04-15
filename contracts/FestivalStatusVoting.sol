@@ -37,7 +37,7 @@ contract FestivalStatusVoting is Ownable {
         _;
     }
 
-    function createVoting(string memory _eventId, uint256 _startDateTime, uint256 _endDateTime, address _ticketNFTAddress) external onlyOwner {
+    function createVoting(string memory _eventId, uint256 _startDateTime, uint256 _endDateTime, address _ticketNFTAddress) external {
         require(_startDateTime > block.timestamp, "Start date time must be in the future");
         require(_endDateTime > _startDateTime, "End date time must be after start date time");
         require(votings[_eventId].startDateTime == 0, "Voting already exists for this event");
@@ -67,7 +67,7 @@ contract FestivalStatusVoting is Ownable {
         emit Voted(msg.sender, _eventId, _voteChoice);
     }
     
-    function voteFromTicketNFT(address _voter, string memory _eventId, bool _voteChoice) external validVoting(_eventId) validVote(_voter, _eventId) returns (bool success) {
+    function voteFromTicketNFT(address _voter, string memory _eventId, bool _voteChoice) external validVoting(_eventId) validVote(_voter, _eventId) {
         Voting storage voting = votings[_eventId];
         require(msg.sender == voting.ticketNFTAddress, "Only ticket NFT contract can call this function");
 

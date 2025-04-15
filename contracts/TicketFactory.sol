@@ -18,13 +18,12 @@ contract TicketFactory {
     constructor(address _festivalTokenAddress, address _votingContractAddress, address _oracleAddress) {
         oracle = MockOracle(_oracleAddress);
 
-        require(_festivalTokenAddress != address(0), "Invalid voting contract address");
+        require(_festivalTokenAddress != address(0), "Invalid token contract address");
         festivalToken = FestivalToken(_festivalTokenAddress);
 
         require(_votingContractAddress != address(0), "Invalid voting contract address");
         newVotingContract = FestivalStatusVoting(_votingContractAddress);
     }
-
     
     // Event structure
     struct Event {
@@ -56,7 +55,6 @@ contract TicketFactory {
         uint256 totalSupply
     );
     
-    
     // Create a new event and NFT ticket contract
     function createEvent(
         string memory _eventId,
@@ -64,60 +62,62 @@ contract TicketFactory {
         uint256 _ticketPrice,        
         uint256 _totalSupply
     ) external returns (address) {
+        // Store oracle data in the Event struct directly
+        Event memory newEvent;
+        newEvent.eventId = _eventId;
+        newEvent.eventSymbol = _eventSymbol;
+        newEvent.ticketPrice = _ticketPrice;
+        newEvent.totalSupply = _totalSupply;
+
+        // Get oracle data
         (
-            address verifiedAddress,
-            string memory eventName,
-            uint256 eventDateTime,
-            string memory eventLocation,
-            string memory eventDescription
+            newEvent.organiser,
+            newEvent.eventName,
+            newEvent.eventDateTime,
+            newEvent.eventLocation,
+            newEvent.eventDescription
         ) = oracle.getEventData(_eventId);
 
-        // uses eventID to see if he is a verified organiser
-        require(msg.sender == verifiedAddress, "Not a verified organiser");
+        require(msg.sender == newEvent.organiser, "Not a verified organiser");
         require(bytes(events[_eventId].eventId).length == 0, "Event ID already exists");
         
-        // Create new NFT contract for this event's tickets
+        // Create new TicketNFT contract
         TicketNFT newTicketContract = new TicketNFT(
-            eventName,  
-            _eventSymbol,
-            _eventId,
-            eventDateTime,
-            eventLocation,
-            eventDescription,
-            _ticketPrice,
-            _totalSupply,
-            verifiedAddress, // Organiser becomes owner
-            address(festivalToken), // Pass the festival token address
-            address(newVotingContract) // Pass the voting contract address
+            newEvent.eventName,  
+            newEvent.eventSymbol,
+            newEvent.eventId,
+            newEvent.eventDateTime,
+            newEvent.eventLocation,
+            newEvent.eventDescription,
+            newEvent.ticketPrice,
+            newEvent.totalSupply,
+            newEvent.organiser,
+            address(festivalToken),
+            address(newVotingContract)
         );
 
-        // Create new voting contract for this event's status
-        newVotingContract.createVoting(_eventId, eventDateTime, eventDateTime + 3 days, address(newTicketContract));
+        // Create voting contract
+        newVotingContract.createVoting(
+            newEvent.eventId, 
+            newEvent.eventDateTime, 
+            newEvent.eventDateTime + 3 days, 
+            address(newTicketContract)
+        );
         
         // Store event details
-        events[_eventId] = Event({
-                eventId: _eventId,
-                eventName: eventName,
-                eventSymbol: _eventSymbol,
-                eventDateTime: eventDateTime,
-                eventLocation: eventLocation,
-                eventDescription: eventDescription,
-                organiser: verifiedAddress,
-                ticketPrice: _ticketPrice,
-                totalSupply: _totalSupply
-            });
+        events[_eventId] = newEvent;
         
         emit EventCreated(
-                _eventId,
-                eventName,
-                _eventSymbol,
-                eventDateTime,
-                eventLocation,
-                eventDescription,
-                verifiedAddress,
-                address(newTicketContract),
-                _ticketPrice,
-                _totalSupply
+            newEvent.eventId,
+            newEvent.eventName,
+            newEvent.eventSymbol,
+            newEvent.eventDateTime,
+            newEvent.eventLocation,
+            newEvent.eventDescription,
+            newEvent.organiser,
+            address(newTicketContract),
+            newEvent.ticketPrice,
+            newEvent.totalSupply
         );
         
         return address(newTicketContract);
