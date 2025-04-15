@@ -39,6 +39,10 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
     address private organiser;
     string private eventId;
     uint256 private eventDateTime;
+    string private eventLocation;
+    string private eventDescription;
+    string private eventName;
+    string private eventSymbol;
     uint256 private ticketPrice;
     uint256 private totalSupply;
 
@@ -63,6 +67,8 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         string memory _eventSymbol,
         string memory _eventId,
         uint256 _eventDateTime,
+        string memory _eventLocation,
+        string memory _eventDescription,
         uint256 _ticketPrice,
         uint256 _totalSupply,
         address _organiser,
@@ -73,7 +79,11 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         _grantRole(MINTER_ROLE, organiser);
 
         eventId = _eventId;
+        eventName = _eventName;
+        eventSymbol = _eventSymbol;
         eventDateTime = _eventDateTime;
+        eventLocation = _eventLocation;
+        eventDescription = _eventDescription;
         ticketPrice = _ticketPrice;
         totalSupply = _totalSupply;
         organiser = _organiser;

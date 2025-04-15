@@ -82,6 +82,8 @@ contract TicketFactory {
             _eventSymbol,
             _eventId,
             eventDateTime,
+            eventLocation,
+            eventDescription,
             _ticketPrice,
             _totalSupply,
             verifiedAddress, // Organiser becomes owner
