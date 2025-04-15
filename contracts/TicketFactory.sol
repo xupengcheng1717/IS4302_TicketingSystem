@@ -28,12 +28,6 @@ contract TicketFactory {
         newVotingContract = FestivalStatusVoting(_votingContractAddress);
     }
 
-    // Event organiser structure
-    struct Organiser {
-        address walletAddress;
-        bool isVerified;
-        string organiserId; // Firebase/Firestore ID
-    }
     
     // Event structure
     struct Event {
@@ -43,36 +37,29 @@ contract TicketFactory {
         uint256 eventDateTime;
         string eventLocation;
         string eventDescription;
-        address verifiedAddress;
         address organiser;
         uint256 ticketPrice; // I include this too cause it makes sense for the factory to like "make" the contracts with a fixed price and total supply so can track easier (prevent fraud)
         uint256 totalSupply;
-        // u can include how you want store the event details here @minghan
         bool isActive; // event status => maybe use voting system to update this status
     }
     
     // Mappings
     mapping(string => Event) public events; // eventId => Event - local database to store the events
     
-    // Events
+    // Events // indexed for easier searching
     event EventCreated(
-        string eventId,
+        string indexed eventId,
         string eventName,
         string eventSymbol,
         uint256 eventDateTime,
-        address organiser,
-        address ticketContract,
-        uint256 ticketPrice,        
+        string eventLocation,
+        string eventDescription,
+        address indexed organiser,
+        address ticketContractAddress,
+        uint256 ticketPrice,
         uint256 totalSupply
     );
     
-     // Event to log responses
-    event Response(
-        bytes32 indexed requestId,
-        string fetchedAddress,
-        bytes response,
-        bytes err
-    );
     
     // Create a new event and NFT ticket contract
     function createEvent(
@@ -101,7 +88,7 @@ contract TicketFactory {
             eventDateTime,
             _ticketPrice,
             _totalSupply,
-            msg.sender, // Organiser becomes owner
+            verifiedAddress, // Organiser becomes owner
             address(festivalToken), // Pass the festival token address
             address(newVotingContract) // Pass the voting contract address
         );
@@ -117,8 +104,7 @@ contract TicketFactory {
                 eventDateTime: eventDateTime,
                 eventLocation: eventLocation,
                 eventDescription: eventDescription,
-                verifiedAddress: verifiedAddress, // assuming you want to store address as string
-                organiser: msg.sender,
+                organiser: verifiedAddress,
                 ticketPrice: _ticketPrice,
                 totalSupply: _totalSupply,
                 isActive: true
@@ -129,7 +115,9 @@ contract TicketFactory {
                 eventName,
                 _eventSymbol,
                 eventDateTime,
-                msg.sender,
+                eventLocation,
+                eventDescription,
+                verifiedAddress,
                 address(newTicketContract),
                 _ticketPrice,
                 _totalSupply
@@ -140,15 +128,30 @@ contract TicketFactory {
     
     // Get event details
     function getEventDetails(string memory _eventId) external view returns (
+        string memory eventId,
         string memory eventName,
         string memory eventSymbol,
         uint256 eventDateTime,
+        string memory eventLocation,
+        string memory eventDescription,
         address organiser,
         uint256 ticketPrice,
         uint256 totalSupply,
         bool isActive
     ) {
         Event storage e = events[_eventId];
-        return (e.eventName, e.eventSymbol, e.eventDateTime, e.organiser, e.ticketPrice, e.totalSupply, e.isActive);
+        require(bytes(e.eventId).length != 0, "Event ID does not exist");
+        return (
+            e.eventId,
+            e.eventName,
+            e.eventSymbol,
+            e.eventDateTime,
+            e.eventLocation,
+            e.eventDescription,
+            e.organiser,
+            e.ticketPrice,
+            e.totalSupply,
+            e.isActive
+        );
     }
 }
