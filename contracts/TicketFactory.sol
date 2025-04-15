@@ -15,9 +15,6 @@ contract TicketFactory {
     FestivalStatusVoting private newVotingContract;
     MockOracle private oracle;
 
-    /**
-     * @notice Initializes the contract with the Chainlink router address and sets the contract owner
-     */
     constructor(address _festivalTokenAddress, address _votingContractAddress, address _oracleAddress) {
         oracle = MockOracle(_oracleAddress);
 
@@ -31,16 +28,15 @@ contract TicketFactory {
     
     // Event structure
     struct Event {
-        string eventId; // From Firebase/Firestore
-        string eventName;
+        string eventId; // from oracle
+        string eventName; // from oracle
         string eventSymbol;
-        uint256 eventDateTime;
-        string eventLocation;
-        string eventDescription;
-        address organiser;
-        uint256 ticketPrice; // I include this too cause it makes sense for the factory to like "make" the contracts with a fixed price and total supply so can track easier (prevent fraud)
+        uint256 eventDateTime; // from oracle
+        string eventLocation; // from oracle
+        string eventDescription; // from oracle
+        address organiser; // verified address from oracle
+        uint256 ticketPrice; 
         uint256 totalSupply;
-        bool isActive; // event status => maybe use voting system to update this status
     }
     
     // Mappings
@@ -106,8 +102,7 @@ contract TicketFactory {
                 eventDescription: eventDescription,
                 organiser: verifiedAddress,
                 ticketPrice: _ticketPrice,
-                totalSupply: _totalSupply,
-                isActive: true
+                totalSupply: _totalSupply
             });
         
         emit EventCreated(
@@ -136,8 +131,7 @@ contract TicketFactory {
         string memory eventDescription,
         address organiser,
         uint256 ticketPrice,
-        uint256 totalSupply,
-        bool isActive
+        uint256 totalSupply
     ) {
         Event storage e = events[_eventId];
         require(bytes(e.eventId).length != 0, "Event ID does not exist");
@@ -150,8 +144,7 @@ contract TicketFactory {
             e.eventDescription,
             e.organiser,
             e.ticketPrice,
-            e.totalSupply,
-            e.isActive
+            e.totalSupply
         );
     }
 }

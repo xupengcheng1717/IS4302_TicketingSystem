@@ -106,7 +106,7 @@ contract FestivalStatusVoting is Ownable {
 
         uint256 percentageNoVotes = (voting.noVotes * 100) / totalNumOfCustomers;
         if (percentageNoVotes >= REFUND_THRESHOLD) {
-            votings[_eventId].eventCancelStatus = true; // Set eventCancelStatus to true to indicate that the voting is canceled
+            votings[_eventId].eventCancelStatus = true; // Set eventCancelStatus to true to indicate that the event is canceled
 
             // Refund all tickets
             TicketNFT(voting.ticketNFTAddress).refundAllTickets();
