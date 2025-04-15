@@ -8,30 +8,41 @@ describe("TicketMarketplace", function () {
     let TicketFactory;
     let TicketMarketplace;
     let FestivalStatusVoting;
+    let MockOracle;
+    let oracle;
     let ticketNFT;
     let festivalToken;
     let ticketFactory;
     let marketplace;
     let votingContract;
-    let owner;
     let organiser;
     let seller;
     let buyer;
 
     // Test variables
-    const eventName = "Summer Festival";
-    const eventSymbol = "SF2024";
-    const eventId = "SF001";
-    let eventDateTime;
+    const eventId = "G5vYZb2n_2V2d";
+    const eventSymbol = "ANDY2024";
     const ticketPrice = ethers.parseEther("0.1");
     const maxSupply = 100;
     const marketplaceFee = 5; // 5% fee
+    let eventName, eventDateTime, eventLocation, eventDescription;
 
     before(async function () {
-        [owner, organiser, seller, buyer] = await ethers.getSigners();
-        eventDateTime = (await time.latest()) + 86400;
+        [organiser, seller, buyer] = await ethers.getSigners();
 
-        // Deploy FestivalToken
+        // Deploy MockOracle first
+        MockOracle = await ethers.getContractFactory("MockOracle");
+        oracle = await MockOracle.deploy();
+        await oracle.waitForDeployment();
+
+        // Get event details from oracle
+        const oracleData = await oracle.getEventData(eventId);
+        eventName = oracleData[1];
+        eventDateTime = oracleData[2];
+        eventLocation = oracleData[3];
+        eventDescription = oracleData[4];
+
+        // Deploy FestivalToken with rate of 0.01 ETH per token
         FestivalToken = await ethers.getContractFactory("FestivalToken");
         festivalToken = await FestivalToken.deploy(ethers.parseEther("0.01"));
         await festivalToken.waitForDeployment();
@@ -45,17 +56,20 @@ describe("TicketMarketplace", function () {
         TicketFactory = await ethers.getContractFactory("TicketFactory");
         ticketFactory = await TicketFactory.deploy(
             await festivalToken.getAddress(),
-            await votingContract.getAddress()
+            await votingContract.getAddress(),
+            await oracle.getAddress()
         );
         await ticketFactory.waitForDeployment();
 
-        // Deploy TicketNFT
+        // Deploy TicketNFT with oracle data
         TicketNFT = await ethers.getContractFactory("TicketNFT");
         ticketNFT = await TicketNFT.deploy(
             eventName,
             eventSymbol,
             eventId,
             eventDateTime,
+            eventLocation,
+            eventDescription,
             ticketPrice,
             maxSupply,
             organiser.address,
@@ -64,17 +78,16 @@ describe("TicketMarketplace", function () {
         );
         await ticketNFT.waitForDeployment();
 
-        // Deploy TicketMarketplace
+        // Deploy TicketMarketplace with all required parameters
         TicketMarketplace = await ethers.getContractFactory("TicketMarketplace");
         marketplace = await TicketMarketplace.deploy(
             await festivalToken.getAddress(),
-            await ticketFactory.getAddress(),
             await ticketNFT.getAddress(),
             organiser.address,
             marketplaceFee
         );
         await marketplace.waitForDeployment();
-
+        
         // Setup initial states
         await ticketNFT.connect(organiser).setMarketplace(await marketplace.getAddress());
         
@@ -172,8 +185,7 @@ describe("TicketMarketplace", function () {
             const newFee = 7; // 7%
             await marketplace.connect(organiser).setMarketplaceFee(newFee);
             
-            // We would need a getter function to verify the new fee
-            // For now, we can verify through a purchase
+            // verify the fee has been updated
             const ticketId = 5;
             const sellingPrice = ticketPrice;
             

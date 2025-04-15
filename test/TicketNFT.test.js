@@ -13,18 +13,30 @@ describe("TicketNFT", function () {
     let organiser;
     let customer;
     let marketplace;
+    let MockOracle;
+    let oracle;
 
     // Test variables
-    const eventName = "Summer Festival";
-    const eventSymbol = "SF2024";
-    const eventId = "SF001";
-    let eventDateTime;
+    const eventId = "G5vYZb2n_2V2d";
+    const eventSymbol = "ANDY2024";
     const ticketPrice = ethers.parseEther("0.1");
     const maxSupply = 100;
+    let eventName, eventDateTime, eventLocation, eventDescription;
 
     before(async function () {
         [owner, organiser, customer, marketplace] = await ethers.getSigners();
-        eventDateTime = (await time.latest()) + 86400;
+
+        // Deploy MockOracle first
+        MockOracle = await ethers.getContractFactory("MockOracle");
+        oracle = await MockOracle.deploy();
+        await oracle.waitForDeployment();
+
+        // Get event details from oracle
+        const oracleData = await oracle.getEventData(eventId);
+        eventName = oracleData[1];
+        eventDateTime = oracleData[2];
+        eventLocation = oracleData[3];
+        eventDescription = oracleData[4];
 
         // Deploy FestivalToken with rate of 0.01 ETH per token
         FestivalToken = await ethers.getContractFactory("FestivalToken");
@@ -36,13 +48,15 @@ describe("TicketNFT", function () {
         votingContract = await FestivalStatusVoting.deploy();
         await votingContract.waitForDeployment();
 
-        // Deploy TicketNFT
+        // Deploy TicketNFT with oracle data
         TicketNFT = await ethers.getContractFactory("TicketNFT");
         ticketNFT = await TicketNFT.deploy(
             eventName,
             eventSymbol,
             eventId,
             eventDateTime,
+            eventLocation,
+            eventDescription,
             ticketPrice,
             maxSupply,
             organiser.address,
@@ -104,26 +118,16 @@ describe("TicketNFT", function () {
         before(async function () {
             // Clear previous mints and start fresh
             await ticketNFT.connect(organiser).bulkMintTickets(5, organiser.address);
-            
-            // Log ticket details for debugging
-            console.log("Total tickets minted:", (await ticketNFT.ticketCounts()).toString());
-            console.log("First ticket owner:", await ticketNFT.ownerOf(1));
         });
 
         it("Should allow customers to buy tickets", async function () {
             const purchaseQty = 2;
-            const initialBalance = await festivalToken.balanceOf(customer.address);
-            console.log("Customer balance before purchase:", ethers.formatEther(initialBalance));
-            
             const tx = await ticketNFT.connect(customer).buyTickets(purchaseQty);
-            const receipt = await tx.wait();
             
             // Get the purchased tickets from transaction events or query the contract
             for (let i = 1; i <= purchaseQty; i++) {
                 const ticketId = i;
-                console.log("Checking ownership of ticket:", ticketId);
                 const owner = await ticketNFT.ownerOf(ticketId);
-                console.log("Ticket", ticketId, "owner:", owner);
                 expect(owner).to.equal(customer.address);
             }
         });
@@ -155,7 +159,22 @@ describe("TicketNFT", function () {
     });
 
     describe("Ticket Usage and Voting", function () {
+        before(async function () {
+            // Create voting for the event
+            const votingEndTime = Number(eventDateTime) + 86400; // Convert to number and add 1 day
+            console.log("Voting end time:", votingEndTime); // Log the value for debugging purpose
+            await votingContract.connect(organiser).createVoting(
+                eventId,
+                eventDateTime,
+                votingEndTime,
+                ticketNFT.getAddress()
+            );
+        });
+
         it("Should allow organiser to scan ticket", async function () {
+            // Move time to after event start
+            await time.increaseTo(eventDateTime + BigInt(1)); // 1 second after event starts
+            
             const ticketId = 1;
             await ticketNFT.connect(organiser).scanNFT(customer.address, ticketId);
             const ticketDetails = await ticketNFT.getTicketDetails(ticketId);
@@ -172,7 +191,9 @@ describe("TicketNFT", function () {
 
     describe("Refunds and Withdrawals", function () {
         it("Should allow organiser to withdraw funds after event", async function () {
-            await time.increase(86400 * 4); // Move 4 days into the future
+            // Move time to after the event (event time + 4 days)
+            await time.increaseTo(eventDateTime + BigInt(86400 * 4));
+            
             const balance = await festivalToken.balanceOf(await ticketNFT.getAddress());
             await ticketNFT.connect(organiser).withdrawAllFunds();
             expect(await festivalToken.balanceOf(organiser.address)).to.equal(balance);

@@ -12,33 +12,28 @@ describe("TicketFactory", function () {
     let owner;
     let organiser;
     let addr1;
+    let MockOracle;
+    let oracle;
     
     // Test variables
-    let eventName;
-    let eventSymbol;
-    let eventId;
-    let eventDateTime;
-    let ticketPrice;
-    let totalSupply;
-    let ticketNFTAddress;
-
-    // Chainlink Functions variables
-    const router = "0xb83E47C2bC239B3bf370bc41e1459A34b41238D0";
-    const subscriptionId = 1; // Replace with your actual subscription ID
-
-    // Add these variables at the top with other test variables
-    let s_lastRequestId;
-    let mockResponse;
+    const eventId = "G5vYZb2n_2V2d"; // Use the predefined event ID from MockOracle
+    const eventSymbol = "ANDY2024";
+    const ticketPrice = ethers.parseEther("0.1");
+    const totalSupply = 100;
 
     before(async function () {
         [owner, organiser, addr1] = await ethers.getSigners();
 
-        // Deploy FestivalToken with required constructor argument (token price)
+        // Deploy MockOracle first
+        MockOracle = await ethers.getContractFactory("MockOracle");
+        oracle = await MockOracle.deploy();
+        await oracle.waitForDeployment();
+
+        // Deploy other contracts
         FestivalToken = await ethers.getContractFactory("FestivalToken");
-        festivalToken = await FestivalToken.deploy(ethers.parseEther("0.01")); // 0.01 ETH per token
+        festivalToken = await FestivalToken.deploy(ethers.parseEther("0.01"));
         await festivalToken.waitForDeployment();
 
-        // Rest of the deployments remain the same
         FestivalStatusVoting = await ethers.getContractFactory("FestivalStatusVoting");
         votingContract = await FestivalStatusVoting.deploy();
         await votingContract.waitForDeployment();
@@ -46,66 +41,61 @@ describe("TicketFactory", function () {
         TicketFactory = await ethers.getContractFactory("TicketFactory");
         ticketFactory = await TicketFactory.deploy(
             await festivalToken.getAddress(),
-            await votingContract.getAddress()
+            await votingContract.getAddress(),
+            await oracle.getAddress()
         );
         await ticketFactory.waitForDeployment();
 
-        // Initialize test variables
-        eventName = "Summer Festival";
-        eventSymbol = "SF2024";
-        eventId = "SF001";
-        eventDateTime = (await time.latest()) + 86400; // 1 day from now
-        ticketPrice = ethers.parseEther("0.1");
-        totalSupply = 100;
+        // Impersonate the verified organiser address
+        const organiserAddress = "0x400322347ad8fF4c9e899044e3aa335F53fFA42B";
+        await network.provider.request({
+            method: "hardhat_impersonateAccount",
+            params: [organiserAddress],
+        });
 
-        // Mock the oracle response
-        mockResponse = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['string'],
-            [organiser.address]
-        );
+        // Fund the organiser account with ETH
+        await owner.sendTransaction({
+            to: organiserAddress,
+            value: ethers.parseEther("10.0"), // Send 10 ETH
+        });
+
+        organiser = await ethers.getSigner(organiserAddress);
     });
 
     describe("Event Creation", function () {
-        it("Should not allow creating event with past datetime", async function () {
-            const pastTime = await time.latest() - 86400; // 1 day ago
-
-            await expect(ticketFactory.connect(organiser).createEvent(
-                "Past Event",
-                "PAST",
-                "PE001",
-                pastTime,
-                ethers.parseEther("0.1"),
-                100
-            )).to.be.revertedWith("Event datetime must be in the future");
-        });
-
         it("Should create a new event and NFT contract successfully", async function () {
-            // Skip the oracle verification for testing
-            // Directly set the fetchedAddress to match organiser's address
-            await ticketFactory.connect(owner).fulfillRequest(
-                ethers.randomBytes(32), // random requestId
-                mockResponse,
-                "0x" // empty error
-            );
-            
             const tx = await ticketFactory.connect(organiser).createEvent(
                 eventId,
-                eventName,
                 eventSymbol,
-                eventDateTime,
                 ticketPrice,
                 totalSupply
             );
             
             const receipt = await tx.wait();
-            const event = receipt.events.find(e => e.event === 'EventCreated');
-            ticketNFTAddress = event.args.ticketContract;
+            // Get event data from the emitted event
+            const eventCreated = receipt.logs.find(
+                log => log.fragment && log.fragment.name === 'EventCreated'
+            );
+            const ticketNFTAddress = eventCreated.args.ticketContractAddress;
+
+            // Get oracle data for comparison
+            const oracleData = await oracle.getEventData(eventId);
+            const eventName = oracleData[1];
+            const eventDateTime = oracleData[2];
+            const eventLocation = oracleData[3];
+            const eventDescription = oracleData[4];
 
             // Verify event details
             const eventDetails = await ticketFactory.getEventDetails(eventId);
-            expect(eventDetails.eventName).to.equal(eventName);
-            expect(eventDetails.organiser).to.equal(organiser.address);
-            expect(eventDetails.isActive).to.be.true;
+            expect(eventDetails[0]).to.equal(eventId);
+            expect(eventDetails[1]).to.equal(eventName);
+            expect(eventDetails[2]).to.equal(eventSymbol);
+            expect(eventDetails[3]).to.equal(eventDateTime);
+            expect(eventDetails[4]).to.equal(eventLocation);
+            expect(eventDetails[5]).to.equal(eventDescription);
+            expect(eventDetails[6]).to.equal(organiser.address);
+            expect(eventDetails[7]).to.equal(ticketPrice);
+            expect(eventDetails[8]).to.equal(totalSupply);
 
             // Verify NFT contract
             const ticketContract = await ethers.getContractAt("TicketNFT", ticketNFTAddress);
@@ -114,40 +104,54 @@ describe("TicketFactory", function () {
             expect(await ticketContract.getEventId()).to.equal(eventId);
             expect(await ticketContract.getTicketPrice()).to.equal(ticketPrice);
             expect(await ticketContract.getOrganiser()).to.equal(organiser.address);
+        });
 
-            // Verify voting initialization
-            const votingDetails = await votingContract.getVotingDetail(eventId);
-            expect(votingDetails.startDateTime).to.equal(eventDateTime);
-            expect(votingDetails.endDateTime).to.equal(eventDateTime + (3 * 24 * 60 * 60));
-            expect(votingDetails.ticketNFTAddress).to.equal(ticketNFTAddress);
+        it("Should not allow unverified organiser to create event", async function () {
+            await expect(
+                ticketFactory.connect(addr1).createEvent(
+                    "NewEvent",
+                    "NEW",
+                    ticketPrice,
+                    totalSupply
+                )
+            ).to.be.revertedWith("Not a verified organiser");
         });
 
         it("Should not allow duplicate event IDs", async function () {
-            await expect(ticketFactory.connect(organiser).createEvent(
-                eventName,
-                eventSymbol,
-                eventId, // Same eventId as previous test
-                eventDateTime + 86400,
-                ticketPrice,
-                totalSupply
-            )).to.be.revertedWith("Event ID already exists");
+            await expect(
+                ticketFactory.connect(organiser).createEvent(
+                    eventId,
+                    "DUP",
+                    ticketPrice,
+                    totalSupply
+                )
+            ).to.be.revertedWith("Event ID already exists");
         });
     });
 
     describe("Event Queries", function () {
-        it("Should get event details correctly", async function () {
-            const eventDetails = await ticketFactory.getEventDetails(eventId);
-            expect(eventDetails.eventName).to.equal(eventName);
-            expect(eventDetails.eventSymbol).to.equal(eventSymbol);
-            expect(eventDetails.organiser).to.equal(organiser.address);
-            expect(eventDetails.ticketPrice).to.equal(ticketPrice);
-            expect(eventDetails.totalSupply).to.equal(totalSupply);
+        let eventName, eventDateTime, eventLocation, eventDescription;
+
+        before(async function() {
+            // Get oracle data for comparison
+            const oracleData = await oracle.getEventData(eventId);
+            eventName = oracleData[1];
+            eventDateTime = oracleData[2];
+            eventLocation = oracleData[3];
+            eventDescription = oracleData[4];
         });
 
-        it("Should get events by organiser", async function () {
-            const organiserEvents = await ticketFactory.getOrganiserEvents(organiser.address);
-            expect(organiserEvents.length).to.equal(1);
-            expect(organiserEvents[0]).to.equal(eventId);
+        it("Should get event details correctly", async function () {
+            const eventDetails = await ticketFactory.getEventDetails(eventId);
+            expect(eventDetails[0]).to.equal(eventId);
+            expect(eventDetails[1]).to.equal(eventName);
+            expect(eventDetails[2]).to.equal(eventSymbol);
+            expect(eventDetails[3]).to.equal(eventDateTime);
+            expect(eventDetails[4]).to.equal(eventLocation);
+            expect(eventDetails[5]).to.equal(eventDescription);
+            expect(eventDetails[6]).to.equal(organiser.address);
+            expect(eventDetails[7]).to.equal(ticketPrice);
+            expect(eventDetails[8]).to.equal(totalSupply);
         });
     });
 });
