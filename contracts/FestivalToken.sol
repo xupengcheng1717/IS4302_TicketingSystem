@@ -13,7 +13,7 @@ contract FestivalToken is ERC20, Ownable {
 
     constructor(uint256 _rate) ERC20("TicketCurrency", "TICK") Ownable(msg.sender) {
         require(_rate > 0, "Rate must be positive");
-        rate = _rate; // Meaning the number of ethers per token
+        rate = _rate;
     }
 
     function getCredit() public payable returns(uint256) {
@@ -30,6 +30,8 @@ contract FestivalToken is ERC20, Ownable {
 
     function transferCredit(address recipient, uint256 amount) public {
         // Balance check is not needed as the transfer function will revert if the balance is insufficient
+        require(recipient != address(0), "Invalid recipient address");
+        require(balanceOf(msg.sender) >= amount, "Insufficient balance");
         _transfer(msg.sender, recipient, amount);
         emit CreditTransferred(msg.sender, recipient, amount);
     }
@@ -37,9 +39,14 @@ contract FestivalToken is ERC20, Ownable {
     function transferCreditFrom(address sender, address recipient, uint256 amount) public {
         require(sender == tx.origin, "Only the original sender can transfer");
         require(recipient != address(0), "Invalid recipient address");
+        require(balanceOf(msg.sender) >= amount, "Insufficient balance");
         // Balance check is not needed as the transfer function will revert if the balance is insufficient
         _transfer(sender, recipient, amount);
         emit CreditTransferred(sender, recipient, amount);
+    }
+
+    function getRate() public view returns(uint256) {
+        return rate;
     }
 
     function setRate(uint256 newRate) external onlyOwner {
