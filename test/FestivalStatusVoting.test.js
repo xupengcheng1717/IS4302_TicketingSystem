@@ -138,6 +138,8 @@ describe("FestivalStatusVoting", function () {
             expect(await voting.connect(ticketHolder2).vote(eventId, false)).to.emit(voting, 'Refund').withArgs(eventId); // 2 out of 2 votes for cancellation
             expect(await festivalToken.connect(ticketHolder1).checkCredit()).to.equal(100); // initial credit
             expect(await festivalToken.connect(ticketHolder2).checkCredit()).to.equal(50); // initial credit
+            const [, , , , , eventCancelStatus] = await voting.getVotingDetail(eventId);
+            expect(eventCancelStatus).to.equal(true); // event is cancelled
         })
     })
     
