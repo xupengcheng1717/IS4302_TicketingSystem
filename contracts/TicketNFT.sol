@@ -301,7 +301,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
 
             _setApprovalForAll(customer, address(votingContract), true);
 
-            // Array to store all token IDs for this customer
+            // Array to store all token IDs for this customer to prevent array index out of bounds
             uint256[] memory tokenIds = new uint256[](balance);
 
             // Transfer tokens from contract to customer for each ticket bought
