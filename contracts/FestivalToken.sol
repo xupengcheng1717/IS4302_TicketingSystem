@@ -39,7 +39,7 @@ contract FestivalToken is ERC20, Ownable {
     function transferCreditFrom(address sender, address recipient, uint256 amount) public {
         require(sender == tx.origin, "Only the original sender can transfer");
         require(recipient != address(0), "Invalid recipient address");
-        require(balanceOf(msg.sender) >= amount, "Insufficient balance");
+        require(balanceOf(sender) >= amount, "Insufficient balance");
         // Balance check is not needed as the transfer function will revert if the balance is insufficient
         _transfer(sender, recipient, amount);
         emit CreditTransferred(sender, recipient, amount);

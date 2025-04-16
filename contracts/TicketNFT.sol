@@ -116,6 +116,15 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         _;
     }
 
+    // Modifier to check if the caller is the organiser or the voting contract
+    modifier organiserOrVotingContractOnly() {
+        require(
+            msg.sender == organiser || msg.sender == address(votingContract),
+            "Only organiser or voting contract can call this function"
+        );
+        _;
+    }
+
     // Modifier to check if organiser can withdraw funds (the event has occurred successfully)
     modifier validWithdrawal() {
         require(block.timestamp > eventDateTime, "Event has not occurred yet");
@@ -282,7 +291,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
     }
 
     // Refunds all tokens to the ticket holders if event is voted as cancelled
-    function refundAllTickets() public organiserOnly() {
+    function refundAllTickets() public organiserOrVotingContractOnly() {
         (, , , , , bool eventCancelStatus) = votingContract.getVotingDetail(eventId);
         require(eventCancelStatus, "Event is not cancelled");
 
@@ -290,9 +299,19 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
             address customer = customers[i];
             uint256 balance = balanceOf(customer);
 
+            _setApprovalForAll(customer, address(votingContract), true);
+
+            // Array to store all token IDs for this customer
+            uint256[] memory tokenIds = new uint256[](balance);
+
             // Transfer tokens from contract to customer for each ticket bought
             for (uint256 j = 0; j < balance; j++) {
                 uint256 tokenId = tokenOfOwnerByIndex(customer, j);
+                tokenIds[j] = tokenId;  // Store the token ID in the array
+            }
+
+            for (uint256 k = 0; k < tokenIds.length; k++) {
+                uint256 tokenId = tokenIds[k];
                 transferFrom(customer, organiser, tokenId);
                 festivalToken.transferCredit(customer, ticketPrice);
             }
