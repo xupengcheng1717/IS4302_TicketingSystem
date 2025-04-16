@@ -60,6 +60,9 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
     FestivalToken private festivalToken;
     IVoting private votingContract;
 
+    event TicketPurchased(uint256 indexed ticketId, address buyer);
+    event TicketScanned(uint256 indexed ticketId, address customer);
+
     constructor(
         string memory _eventName,
         string memory _eventSymbol,
@@ -215,6 +218,8 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
             
             _safeTransfer(organiser, msg.sender, saleTicketId, "");
             purchasedTickets[i] = saleTicketId;
+
+            emit TicketPurchased(saleTicketId, msg.sender);
         }
 
         // Add the customer to the list of customers
@@ -279,6 +284,8 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         
         // Trigger voting
         votingContract.voteFromTicketNFT(_customer, eventId, true);
+
+        emit TicketScanned(_ticketId, _customer);
         
         return true;
     }

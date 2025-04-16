@@ -24,7 +24,7 @@ describe("TicketMarketplace", function () {
     const eventSymbol = "ANDY2024";
     const ticketPrice = 10;
     const maxSupply = 100;
-    const marketplaceFee = 1; // 1 token per transaction
+    const marketplaceFee = 10; // 10% per transaction
     let eventName, eventDateTime, eventLocation, eventDescription;
 
     before(async function () {
@@ -178,7 +178,7 @@ describe("TicketMarketplace", function () {
             expect(await marketplace.getMarketplaceFee()).to.equal(newFee); 
         });
 
-        it("Should not allow fee above 10 tokens", async function () {
+        it("Should not allow fee above 10%", async function () {
             await expect(
                 marketplace.connect(organiser).setMarketplaceFee(11)
             ).to.be.revertedWith("Marketplace fee too high");
