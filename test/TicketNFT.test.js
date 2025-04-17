@@ -175,7 +175,7 @@ describe("TicketNFT", function () {
         });
     });
 
-    describe("Ticket Usage and Voting", function () {
+    describe("Ticket Scanning", function () {
         before(async function () {
             // Create voting for the event
             const votingEndTime = Number(eventDateTime) + 86400; // Convert to number and add 1 day
@@ -214,7 +214,7 @@ describe("TicketNFT", function () {
         });
     });
 
-    describe("Refunds and Withdrawals", function () {
+    describe("Fund Withdrawal", function () {
         it("Should not allow organiser to withdraw funds before voting ends", async function () {
             // Move time to after event starts but before the voting ends (event time + 1 day)
             // await time.increaseTo(eventDateTime + BigInt(86400));

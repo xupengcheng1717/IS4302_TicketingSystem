@@ -106,6 +106,12 @@ contract TicketMarketplace {
         
         emit TicketSold(_ticketId, _sellingPrice, _seller, msg.sender);
     }
+
+    // Update customers array in ticketNFT contract (for testing purposes)
+    function __testUpdateCustomersArray(address _seller, address _buyer) external {
+        require(block.chainid == 31337, "Test only");
+        ticketNFT.updateCustomersArray(_seller, _buyer);
+    }
     
     // Allows a seller to remove their ticket from sale
     function unlistTicket(uint256 _ticketId) external validListing(_ticketId) {

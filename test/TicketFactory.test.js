@@ -104,6 +104,10 @@ describe("TicketFactory", function () {
             expect(await ticketContract.getEventId()).to.equal(eventId);
             expect(await ticketContract.getTicketPrice()).to.equal(ticketPrice);
             expect(await ticketContract.getOrganiser()).to.equal(organiser.address);
+
+            // Verify voting created
+            const votingDetails = await votingContract.getVotingDetail(eventId);
+            expect(votingDetails[4]).to.equal(ticketNFTAddress);
         });
 
         it("Should not allow unverified organiser to create event", async function () {

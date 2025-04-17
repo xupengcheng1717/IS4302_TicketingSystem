@@ -244,10 +244,10 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
     }
     
     // Updates customers array after a secondary resale transaction in marketplace
-    function updateCustomersArray(address seller, address buyer) public {
+    function updateCustomersArray(address _seller, address _buyer) public {
         require(hasRole(MARKETPLACE_ROLE, msg.sender), "Only marketplace can call this function");
-        addCustomer(buyer);
-        removeCustomer(seller);
+        addCustomer(_buyer);
+        removeCustomer(_seller);
     }
 
     // Adds a customer to the list of customers
