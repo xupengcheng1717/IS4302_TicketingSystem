@@ -28,7 +28,7 @@ describe('FestivalToken', function () {
             await festivalToken.connect(addr1).getCredit({ value: ethers.parseEther('4')});
             expect(await festivalToken.balanceOf(addr1.address)).to.equal(2);
 
-            await festivalToken.connect(addr2).getCredit({ value: ethers.parseEther('7')});
+            await festivalToken.connect(addr2).getCredit({ value: ethers.parseEther('6')});
             expect(await festivalToken.balanceOf(addr2.address)).to.equal(3);
         });
 
@@ -105,6 +105,38 @@ describe('FestivalToken', function () {
 
         it('Should revert if rate is set to non-positive number', async function () {
             await expect(festivalToken.setRate(0)).to.be.revertedWith('Rate must be positive');
+        });
+    })
+
+    describe('Withdraw', function () {
+        it('Should allow token holder to withdraw ETH', async function () {
+            const rate = await festivalToken.getRate();
+            const initialBalance = await ethers.provider.getBalance(addr1.address);
+            expect(await festivalToken.connect(addr1).checkCredit()).to.equal(1)
+            await festivalToken.connect(addr1).withdrawCredit(1);
+            expect(await festivalToken.connect(addr1).checkCredit()).to.equal(0);
+            const finalBalance = await ethers.provider.getBalance(addr1.address);
+            // use above to check because the balance may not be exactly equal due to gas fees
+            expect(finalBalance).to.be.above(initialBalance)
+        });
+
+        it('Should revert if insufficient credit', async function () {
+            await expect(festivalToken.connect(addr1).withdrawCredit(5)).to.be.revertedWith('Insufficient balance');
+        });
+
+        it('Should revert if non-owner tries to withdraw ETH', async function () {
+            await expect(festivalToken.connect(addr1).withdrawETH()).to.be.revertedWithCustomError(festivalToken, "OwnableUnauthorizedAccount");
+        });
+
+        it('Should allow owner to withdraw ETH', async function () {
+            const initialBalance = await ethers.provider.getBalance(owner.address);
+            await festivalToken.withdrawETH();
+            const finalBalance = await ethers.provider.getBalance(owner.address);
+            expect(finalBalance).to.be.above(initialBalance);
+        });
+
+        it('Should revert if contract has no ETH', async function () {
+            await expect(festivalToken.withdrawETH()).to.be.revertedWith('No ETH to withdraw');
         });
     })
 })
