@@ -1,4 +1,4 @@
-🎟️ Tikex
+# 🎟️ Tikex
 
 Welcome to **Tikex**, a decentralized platform for creating, managing, and purchasing event tickets using blockchain technology. This system leverages smart contracts written in Solidity to ensure transparency, security, and efficiency in event ticketing and management.
 
