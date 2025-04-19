@@ -52,29 +52,22 @@ The system is built on a modular architecture with the following key components:
 
 Below are some placeholder images from the Figma design of the mobile app:
 
-### 1. 🏠 Home Screen
+### 1. 🏠 Login Screen
 
-![Home Screen Placeholder](./images/home_screen_placeholder.png)
+![iPhone 16 Pro Max - 1](https://github.com/user-attachments/assets/93aae736-b45a-471e-91aa-27bc016edc88)
 
-### 2. 📋 Event Details
+### 2. 💳 Ticket Purchase
 
-![Event Details Placeholder](./images/event_details_placeholder.png)
+![iPhone 16 Pro Max - 6](https://github.com/user-attachments/assets/6a10f70e-1e01-42a6-8079-3aa1703d55e6)
 
-### 3. 💳 Ticket Purchase
+### 3. 🗳️ Voting Screen
 
-![Ticket Purchase Placeholder](./images/ticket_purchase_placeholder.png)
+![iPhone 16 Pro Max - 8](https://github.com/user-attachments/assets/b25764ff-89cd-4dea-b33e-db7bafc6e799)
 
-### 4. 🗳️ Voting Screen
+### 4. 🛒 Marketplace
 
-![Voting Screen Placeholder](./images/voting_screen_placeholder.png)
+![iPhone 16 Pro Max - 2](https://github.com/user-attachments/assets/caee0ef8-74fb-4fad-977a-a14c0547adf5)
 
-### 5. 🛒 Marketplace
-
-![Marketplace Placeholder](./images/marketplace_placeholder.png)
-
-### 6. 👤 Profile Screen
-
-![Profile Screen Placeholder](./images/profile_screen_placeholder.png)
 
 ---
 
@@ -110,7 +103,7 @@ Below are some placeholder images from the Figma design of the mobile app:
 4. Deploy the contracts:
 
    ```bash
-   npx hardhat run scripts/deploy.js --network <network-name>
+   npx hardhat run scripts/deploy.js 
    ```
 
 5. Start the development server:
@@ -124,23 +117,17 @@ Below are some placeholder images from the Figma design of the mobile app:
 
 We would like to thank the following contributors for their efforts in building this project:
 
-1. **👩‍💻 Contributor 1**  
-   ![Contributor 1 Placeholder](./images/contributor1_placeholder.png)
+### 1. [👨‍💻 Jamie Lee](https://github.com/jamielfh)
 
-2. **👨‍💻 Contributor 2**  
-   ![Contributor 2 Placeholder](./images/contributor2_placeholder.png)
+### 2. [👨‍💻 Xu Pengcheng](https://github.com/xupengcheng1717)
 
-3. **👩‍💻 Contributor 3**  
-   ![Contributor 3 Placeholder](./images/contributor3_placeholder.png)
+### 3. [👨‍💻 Rishikesh Kadiyala](https://github.com/RishiPrime)
 
-4. **👨‍💻 Contributor 4**  
-   ![Contributor 4 Placeholder](./images/contributor4_placeholder.png)
+### 4. [👨‍💻 Go Song Ying](https://github.com/gosongying)
 
-5. **👩‍💻 Contributor 5**  
-   ![Contributor 5 Placeholder](./images/contributor5_placeholder.png)
+### 5. [👨‍💻 Ow Zheng Wei](https://github.com/zzhengweii)
 
-6. **👨‍💻 Contributor 6**  
-   ![Contributor 6 Placeholder](./images/contributor6_placeholder.png)
+### 6. [👨‍💻 Chia Ming Han](https://github.com/minghan101)
 
 ---
 
