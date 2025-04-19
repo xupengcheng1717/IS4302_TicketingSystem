@@ -60,6 +60,9 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
     FestivalToken private festivalToken;
     IVoting private votingContract;
 
+    event TicketPurchased(uint256 indexed ticketId, address buyer);
+    event TicketScanned(uint256 indexed ticketId, address customer);
+
     constructor(
         string memory _eventName,
         string memory _eventSymbol,
@@ -113,6 +116,15 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
     // Modifier to check if the caller is the organiser
     modifier organiserOnly() {
         require(msg.sender == organiser, "Only organiser can call this function");
+        _;
+    }
+
+    // Modifier to check if the caller is the organiser or the voting contract
+    modifier organiserOrVotingContractOnly() {
+        require(
+            msg.sender == organiser || msg.sender == address(votingContract),
+            "Only organiser or voting contract can call this function"
+        );
         _;
     }
 
@@ -206,6 +218,8 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
             
             _safeTransfer(organiser, msg.sender, saleTicketId, "");
             purchasedTickets[i] = saleTicketId;
+
+            emit TicketPurchased(saleTicketId, msg.sender);
         }
 
         // Add the customer to the list of customers
@@ -230,10 +244,10 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
     }
     
     // Updates customers array after a secondary resale transaction in marketplace
-    function updateCustomersArray(address seller, address buyer) public {
+    function updateCustomersArray(address _seller, address _buyer) public {
         require(hasRole(MARKETPLACE_ROLE, msg.sender), "Only marketplace can call this function");
-        addCustomer(buyer);
-        removeCustomer(seller);
+        addCustomer(_buyer);
+        removeCustomer(_seller);
     }
 
     // Adds a customer to the list of customers
@@ -270,6 +284,8 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
         
         // Trigger voting
         votingContract.voteFromTicketNFT(_customer, eventId, true);
+
+        emit TicketScanned(_ticketId, _customer);
         
         return true;
     }
@@ -282,7 +298,7 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
     }
 
     // Refunds all tokens to the ticket holders if event is voted as cancelled
-    function refundAllTickets() public organiserOnly() {
+    function refundAllTickets() public organiserOrVotingContractOnly() {
         (, , , , , bool eventCancelStatus) = votingContract.getVotingDetail(eventId);
         require(eventCancelStatus, "Event is not cancelled");
 
@@ -290,9 +306,19 @@ contract TicketNFT is AccessControl, ERC721Enumerable {
             address customer = customers[i];
             uint256 balance = balanceOf(customer);
 
+            _setApprovalForAll(customer, address(votingContract), true);
+
+            // Array to store all token IDs for this customer to prevent array index out of bounds
+            uint256[] memory tokenIds = new uint256[](balance);
+
             // Transfer tokens from contract to customer for each ticket bought
             for (uint256 j = 0; j < balance; j++) {
                 uint256 tokenId = tokenOfOwnerByIndex(customer, j);
+                tokenIds[j] = tokenId;  // Store the token ID in the array
+            }
+
+            for (uint256 k = 0; k < tokenIds.length; k++) {
+                uint256 tokenId = tokenIds[k];
                 transferFrom(customer, organiser, tokenId);
                 festivalToken.transferCredit(customer, ticketPrice);
             }

@@ -20,7 +20,7 @@ contract TicketMarketplace {
 
     // Marketplace details
     address private organiser;
-    uint256 private marketplaceFee; // integer in tokens
+    uint256 private marketplaceFee; // as a percentage of ticket price
     
     // Mapping from ticket ID to listing details
     mapping(uint256 => ListingDetails) private listings;
@@ -43,7 +43,7 @@ contract TicketMarketplace {
 
         organiser = _organiser;
 
-        require(_marketplaceFee <= 10, "Marketplace fee too high"); // Max 10 tokens
+        require(_marketplaceFee <= 10, "Marketplace fee too high"); // Max 10%
         marketplaceFee = _marketplaceFee;
     }
 
@@ -88,10 +88,12 @@ contract TicketMarketplace {
 
         // Check if buyer has sufficient tokens
         require(festivalToken.balanceOf(msg.sender) >= _sellingPrice + marketplaceFee, "Insufficient tokens");
+
+        uint256 _fee = (_sellingPrice * marketplaceFee) / 100; // Calculate marketplace fee
         
         // Transfer tokens
         festivalToken.transferFrom(msg.sender, _seller, _sellingPrice);
-        festivalToken.transferFrom(msg.sender, organiser, marketplaceFee);
+        festivalToken.transferFrom(msg.sender, organiser, _fee);
         
         // Transfer ticket to buyer
         ticketNFT.transferFrom(_seller, msg.sender, _ticketId);
@@ -103,6 +105,12 @@ contract TicketMarketplace {
         delete listings[_ticketId];
         
         emit TicketSold(_ticketId, _sellingPrice, _seller, msg.sender);
+    }
+
+    // Update customers array in ticketNFT contract (for testing purposes)
+    function __testUpdateCustomersArray(address _seller, address _buyer) external {
+        require(block.chainid == 31337, "Test only");
+        ticketNFT.updateCustomersArray(_seller, _buyer);
     }
     
     // Allows a seller to remove their ticket from sale
