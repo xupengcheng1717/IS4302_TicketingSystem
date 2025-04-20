@@ -191,7 +191,6 @@ describe("TicketNFT", function () {
             await ticketNFT.connect(organiser).scanNFT(customer.address, ticketId);
             const ticketDetails = await ticketNFT.getTicketDetails(ticketId);
             expect(ticketDetails.isUsed).to.be.true;
-            // voteFromtTicketNFT function will be tested in voting test file
         });
 
         it("Should not allow scanning tickets that don't belong to the customer", async function () {
