@@ -21,6 +21,7 @@ contract TicketMarketplace {
     // Marketplace details
     address private organiser;
     uint256 private marketplaceFee; // as a percentage of ticket price
+    uint256 constant DECIMALS = 100; // marketplaceFee to 2 decimal places
     
     // Mapping from ticket ID to listing details
     mapping(uint256 => ListingDetails) private listings;
@@ -43,7 +44,7 @@ contract TicketMarketplace {
 
         organiser = _organiser;
 
-        require(_marketplaceFee <= 10, "Marketplace fee too high"); // Max 10%
+        require(_marketplaceFee <= 100, "Marketplace fee too high"); // Max 1%
         marketplaceFee = _marketplaceFee;
     }
 
@@ -86,13 +87,15 @@ contract TicketMarketplace {
         address _seller = listing.seller;
         uint256 _sellingPrice = listing.sellingPrice;
 
-        // Check if buyer has sufficient tokens
-        require(festivalToken.balanceOf(msg.sender) >= _sellingPrice + marketplaceFee, "Insufficient tokens");
+        uint256 _fee = (_sellingPrice * marketplaceFee) / (100 * DECIMALS); // Calculate marketplace fee
 
-        uint256 _fee = (_sellingPrice * marketplaceFee) / 100; // Calculate marketplace fee
+        // Check if buyer has sufficient tokens
+        require(festivalToken.balanceOf(msg.sender) >= _sellingPrice, "Insufficient tokens");
+
+        uint256 _sellerReceive = _sellingPrice - _fee; // Calculate seller's receiveable amount
         
         // Transfer tokens
-        festivalToken.transferFrom(msg.sender, _seller, _sellingPrice);
+        festivalToken.transferFrom(msg.sender, _seller, _sellerReceive);
         festivalToken.transferFrom(msg.sender, organiser, _fee);
         
         // Transfer ticket to buyer
@@ -136,7 +139,7 @@ contract TicketMarketplace {
     // Allows the organiser to update the marketplace fee
     function setMarketplaceFee(uint256 _newFee) external {
         require(msg.sender == organiser, "Only organiser can set fee");
-        require(_newFee <= 10, "Marketplace fee too high"); // Max 10%
+        require(_newFee <= 100, "Marketplace fee too high"); // Max 1%
         marketplaceFee = _newFee;
     }
 

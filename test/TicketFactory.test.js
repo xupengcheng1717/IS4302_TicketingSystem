@@ -18,20 +18,18 @@ describe("TicketFactory", function () {
     // Test variables
     const eventId = "G5vYZb2n_2V2d"; // Use the predefined event ID from MockOracle
     const eventSymbol = "ANDY2024";
-    const ticketPrice = 10;
-    const totalSupply = 100;
+    const ticketPrice = 100;
+    const totalSupply = 200;
 
     before(async function () {
         [owner, organiser, addr1] = await ethers.getSigners();
 
-        // Deploy MockOracle first
         MockOracle = await ethers.getContractFactory("MockOracle");
         oracle = await MockOracle.deploy();
         await oracle.waitForDeployment();
 
-        // Deploy other contracts
         FestivalToken = await ethers.getContractFactory("FestivalToken");
-        festivalToken = await FestivalToken.deploy(ethers.parseEther("0.01"));
+        festivalToken = await FestivalToken.deploy(ethers.parseEther("0.001"));
         await festivalToken.waitForDeployment();
 
         FestivalStatusVoting = await ethers.getContractFactory("FestivalStatusVoting");

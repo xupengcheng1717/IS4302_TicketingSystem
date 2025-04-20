@@ -16,8 +16,8 @@ describe("FestivalStatusVoting", function () {
     const eventDescription = "Test Description";
     const eventId1 = "G5vYZb2n_2V2d";
     const eventSymbol1 = "ANDY2024";
-    const ticketPrice = 2;
-    const maxSupply = 100;
+    const ticketPrice = 100;
+    const maxSupply = 200;
     const eventId2 = "G5vYZb2n_2V2e";
     const eventSymbol2 = "ANDY2025";
     const eventName2 = "Testing Event 2";
@@ -32,13 +32,13 @@ describe("FestivalStatusVoting", function () {
 
         // Deploy dummy FestivalToken
         const FestivalTokenContract = await ethers.getContractFactory("FestivalToken");
-        festivalToken = await FestivalTokenContract.deploy(ethers.parseEther("0.1"));
+        festivalToken = await FestivalTokenContract.deploy(ethers.parseEther("0.001"));
         await festivalToken.waitForDeployment();
 
-        await festivalToken.connect(ticketHolder1).getCredit({ value: ethers.parseEther("10") });
-        await festivalToken.connect(ticketHolder2).getCredit({ value: ethers.parseEther("5") });
-        await festivalToken.connect(ticketHolder3).getCredit({ value: ethers.parseEther("5") });
-        await festivalToken.connect(outsider).getCredit({ value: ethers.parseEther("5") });
+        await festivalToken.connect(ticketHolder1).getCredit({ value: ethers.parseEther("1.0") });
+        await festivalToken.connect(ticketHolder2).getCredit({ value: ethers.parseEther("0.5") });
+        await festivalToken.connect(ticketHolder3).getCredit({ value: ethers.parseEther("0.5") });
+        await festivalToken.connect(outsider).getCredit({ value: ethers.parseEther("0.5") });
 
         // Deploy Voting contract
         VotingContract = await ethers.getContractFactory("FestivalStatusVoting");
@@ -224,14 +224,14 @@ describe("FestivalStatusVoting", function () {
             await network.provider.send('evm_setNextBlockTimestamp', [eventDateTime2 + 3600]); // fast forward to 1 hour after eventDateTime2 and eventDateTime3
             await network.provider.send('evm_mine');
 
-            expect(await festivalToken.connect(ticketHolder1).checkCredit()).to.equal(94); // initial credit after buying 3 tickets
-            expect(await festivalToken.connect(ticketHolder2).checkCredit()).to.equal(44);
-            expect(await festivalToken.connect(ticketHolder3).checkCredit()).to.equal(44);
+            expect(await festivalToken.connect(ticketHolder1).checkCredit()).to.equal(700); // initial credit after buying 3 tickets
+            expect(await festivalToken.connect(ticketHolder2).checkCredit()).to.equal(200);
+            expect(await festivalToken.connect(ticketHolder3).checkCredit()).to.equal(200);
             expect(await voting.connect(ticketHolder1).vote(eventId2, false)).to.not.emit(voting, 'Refund'); // only 1/3 votes for cancellation, no refund
             expect(await voting.connect(ticketHolder2).vote(eventId2, false)).to.emit(voting, 'Refund').withArgs(eventId2); // 2/3 votes for cancellation, SHOULD REFUND
-            expect(await festivalToken.connect(ticketHolder1).checkCredit()).to.equal(96); // after refund of 1 ticket of event 2
-            expect(await festivalToken.connect(ticketHolder2).checkCredit()).to.equal(46); // after refund of 1 ticket of event 2
-            expect(await festivalToken.connect(ticketHolder3).checkCredit()).to.equal(46); // after refund of 1 ticket of event 2
+            expect(await festivalToken.connect(ticketHolder1).checkCredit()).to.equal(800); // after refund of 1 ticket of event 2
+            expect(await festivalToken.connect(ticketHolder2).checkCredit()).to.equal(300); // after refund of 1 ticket of event 2
+            expect(await festivalToken.connect(ticketHolder3).checkCredit()).to.equal(300); // after refund of 1 ticket of event 2
             const [, , , , , eventCancelStatus] = await voting.getVotingDetail(eventId2);
             expect(eventCancelStatus).to.equal(true); // event is cancelled
         })
@@ -240,9 +240,9 @@ describe("FestivalStatusVoting", function () {
             expect(await voting.connect(ticketHolder1).vote(eventId3, false)).to.not.emit(voting, 'Refund'); // only 1/3 votes for cancellation, no refund
             expect(await voting.connect(ticketHolder2).vote(eventId3, true)).to.not.emit(voting, 'Refund'); // only 1/3 votes for cancellation, no refund
             expect(await voting.connect(ticketHolder3).vote(eventId3, true)).to.not.emit(voting, 'Refund'); // only 1/3 votes for cancellation, no refund
-            expect(await festivalToken.connect(ticketHolder1).checkCredit()).to.equal(96);
-            expect(await festivalToken.connect(ticketHolder2).checkCredit()).to.equal(46);
-            expect(await festivalToken.connect(ticketHolder3).checkCredit()).to.equal(46);
+            expect(await festivalToken.connect(ticketHolder1).checkCredit()).to.equal(800);
+            expect(await festivalToken.connect(ticketHolder2).checkCredit()).to.equal(300);
+            expect(await festivalToken.connect(ticketHolder3).checkCredit()).to.equal(300);
             const [, , , , , eventCancelStatus] = await voting.getVotingDetail(eventId3);
             expect(eventCancelStatus).to.equal(false); // event is not cancelled
         })

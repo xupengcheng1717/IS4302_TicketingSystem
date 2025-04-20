@@ -19,8 +19,8 @@ describe("TicketNFT", function () {
     // Test variables
     const eventId = "G5vYZb2n_2V2d";
     const eventSymbol = "ANDY2024";
-    const ticketPrice = 10;
-    const maxSupply = 100;
+    const ticketPrice = 100;
+    const maxSupply = 200;
     let eventName, eventDateTime, eventLocation, eventDescription;
 
     before(async function () {
@@ -40,7 +40,7 @@ describe("TicketNFT", function () {
 
         // Deploy FestivalToken with rate of 0.01 ETH per token
         FestivalToken = await ethers.getContractFactory("FestivalToken");
-        festivalToken = await FestivalToken.deploy(ethers.parseEther("0.01"));
+        festivalToken = await FestivalToken.deploy(ethers.parseEther("0.001"));
         await festivalToken.waitForDeployment();
 
         // Deploy FestivalStatusVoting
@@ -70,10 +70,6 @@ describe("TicketNFT", function () {
             value: ethers.parseEther("1.0") // Send 1 ETH
         });
         await creditTx.wait();
-
-        // Log balances to verify
-        const balance = await festivalToken.balanceOf(customer.address);
-        console.log("Initial customer token balance:", balance);
 
         await festivalToken.connect(customer).approve(await ticketNFT.getAddress(), ethers.parseEther("10.0"));
     });
@@ -138,8 +134,8 @@ describe("TicketNFT", function () {
         });
 
         it("Should update token balances after purchase", async function () {
-            expect(await festivalToken.balanceOf(await ticketNFT.getAddress())).to.equal(20);
-            expect(await festivalToken.balanceOf(customer.address)).to.equal(80);
+            expect(await festivalToken.balanceOf(await ticketNFT.getAddress())).to.equal(200);
+            expect(await festivalToken.balanceOf(customer.address)).to.equal(800);
         });
 
         it("Should update customer list after purchase", async function () {
@@ -179,7 +175,6 @@ describe("TicketNFT", function () {
         before(async function () {
             // Create voting for the event
             const votingEndTime = Number(eventDateTime) + 86400; // Convert to number and add 1 day
-            console.log("Voting end time:", votingEndTime); // Log the value for debugging purpose
             await votingContract.connect(organiser).createVoting(
                 eventId,
                 eventDateTime,

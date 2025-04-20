@@ -23,9 +23,9 @@ describe("TicketMarketplace", function () {
     // Test variables
     const eventId = "G5vYZb2n_2V2d";
     const eventSymbol = "ANDY2024";
-    const ticketPrice = 10;
-    const maxSupply = 100;
-    const marketplaceFee = 10; // 10% per transaction
+    const maxSupply = 200;
+    const ticketPrice = 100;
+    const marketplaceFee = 100; // 1% per transaction
     let eventName, eventDateTime, eventLocation, eventDescription;
 
     before(async function () {
@@ -45,7 +45,7 @@ describe("TicketMarketplace", function () {
 
         // Deploy FestivalToken with rate of 0.01 ETH per token
         FestivalToken = await ethers.getContractFactory("FestivalToken");
-        festivalToken = await FestivalToken.deploy(ethers.parseEther("0.01"));
+        festivalToken = await FestivalToken.deploy(ethers.parseEther("0.001"));
         await festivalToken.waitForDeployment();
 
         // Deploy FestivalStatusVoting
@@ -162,9 +162,9 @@ describe("TicketMarketplace", function () {
         });
 
         it("Should update token balances of buyer, seller1, and organiser", async function () {
-            expect(await festivalToken.balanceOf(buyer.address)).to.equal(89);
-            expect(await festivalToken.balanceOf(seller1.address)).to.equal(110);
-            expect(await festivalToken.balanceOf(organiser.address)).to.equal(1);
+            expect(await festivalToken.balanceOf(buyer.address)).to.equal(900); // 100 tokens deducted
+            expect(await festivalToken.balanceOf(seller1.address)).to.equal(1099); // 99 tokens earned (minus 1% fee)
+            expect(await festivalToken.balanceOf(organiser.address)).to.equal(1); // 1 token earned from 1% fee
         });
 
         it("Should not allow purchase of unlisted ticket", async function () {
@@ -192,16 +192,16 @@ describe("TicketMarketplace", function () {
 
     describe("Marketplace Administration", function () {
         it("Should allow organiser to update marketplace fee", async function () {
-            const newFee = 7;
+            const newFee = 70;
             await marketplace.connect(organiser).setMarketplaceFee(newFee);
             
             // verify the fee has been updated
             expect(await marketplace.getMarketplaceFee()).to.equal(newFee); 
         });
 
-        it("Should not allow fee above 10%", async function () {
+        it("Should not allow fee above 1%", async function () {
             await expect(
-                marketplace.connect(organiser).setMarketplaceFee(11)
+                marketplace.connect(organiser).setMarketplaceFee(110)
             ).to.be.revertedWith("Marketplace fee too high");
         });
     });
